@@ -7,12 +7,12 @@ import {
   Suspense,
 } from "solid-js";
 import { blockSchema, rep, type Entry } from "./cache.js";
-import { schema } from "prosemirror-schema-basic";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
+import { Schema } from "prosemirror-model";
 
 export function App() {
   return (
@@ -29,13 +29,33 @@ const Suspended = () => {
     return rep.mutate.createDraftEntry();
   });
 
+  const schema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: {
+        content: "text*",
+        group: "block",
+        parseDOM: [{ tag: "p" }],
+        toDOM() {
+          return ["p", 0];
+        },
+      },
+      blockquote: {
+        content: "block+",
+        group: "block",
+        parseDOM: [{ tag: "blockquote" }],
+        toDOM() {
+          return ["blockquote", 0];
+        },
+      },
+      text: { inline: true },
+    },
+  });
+
   const doc = schema.node("doc", null, [
     schema.node("paragraph", null, [schema.text("One.")]),
-    schema.node("horizontal_rule"),
-    schema.node("blockquote", null, [
-      schema.node("paragraph", { style: "color:red" }, [schema.text("One.")]),
-      schema.node("paragraph", null, [schema.text("Two!")]),
-    ]),
+    schema.node("paragraph", { style: "color:red" }, [schema.text("One.")]),
+    schema.node("paragraph", null, [schema.text("Two!")]),
   ]);
 
   const state = EditorState.create({
@@ -60,7 +80,22 @@ const Suspended = () => {
       >
         {draft()?.title}
       </h1>
-      <div>{draft()?.body.map((id) => <BlockRenderer id={id} />)}</div>
+      <div
+        ref={(el) => {
+          const view = new EditorView(el, {
+            state,
+            dispatchTransaction(transaction) {
+              // transaction.insertText("new text");
+              const { before, doc } = transaction;
+              console.log(
+                `went from ${before.content.size} to ${doc.content.size}`,
+              );
+              const newState = view.state.apply(transaction);
+              view.updateState(newState);
+            },
+          });
+        }}
+      />
     </article>
   );
 };
