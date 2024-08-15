@@ -7,11 +7,16 @@ import {
   Suspense,
 } from "solid-js";
 import { blockSchema, rep, type Entry } from "./cache.js";
-// import "./FikaBlock.web.jsx";
+import { schema } from "prosemirror-schema-basic";
+import { EditorState } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
+import { undo, redo, history } from "prosemirror-history";
+import { keymap } from "prosemirror-keymap";
+import { baseKeymap } from "prosemirror-commands";
 
 export function App() {
   return (
-    <main class="max-w-prose">
+    <main>
       <Suspense fallback={<p>Loading</p>}>
         <Suspended />
       </Suspense>
@@ -21,12 +26,33 @@ export function App() {
 
 const Suspended = () => {
   const [draft] = createResource(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
     return rep.mutate.createDraftEntry();
   });
 
+  const doc = schema.node("doc", null, [
+    schema.node("paragraph", null, [schema.text("One.")]),
+    schema.node("horizontal_rule"),
+    schema.node("blockquote", null, [
+      schema.node("paragraph", { style: "color:red" }, [schema.text("One.")]),
+      schema.node("paragraph", null, [schema.text("Two!")]),
+    ]),
+  ]);
+
+  const state = EditorState.create({
+    doc,
+    schema,
+    plugins: [
+      history(),
+      keymap({
+        "Mod-z": undo,
+        "Mod-y": redo,
+      }),
+      keymap(baseKeymap),
+    ],
+  });
+
   return (
-    <article>
+    <article class="max-w-prose mx-auto py-8">
       <h1
         contentEditable
         onInput={(e) => rep.mutate.updateEntryTitle(e.target.textContent ?? "")}
