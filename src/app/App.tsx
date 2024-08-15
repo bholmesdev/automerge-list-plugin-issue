@@ -12,7 +12,7 @@ import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Schema } from "prosemirror-model";
+import { Mark, Schema } from "prosemirror-model";
 
 export function App() {
   return (
@@ -52,7 +52,7 @@ const Suspended = () => {
       text: { inline: true },
     },
     marks: {
-      strong: {
+      bold: {
         toDOM() {
           return ["strong", 0];
         },
@@ -62,11 +62,17 @@ const Suspended = () => {
           { style: "font-weight=bold" },
         ],
       },
-      em: {
+      italic: {
         toDOM() {
           return ["em", 0];
         },
         parseDOM: [{ tag: "em" }, { tag: "i" }, { style: "font-style=italic" }],
+      },
+      highlight: {
+        toDOM() {
+          return ["mark", 0];
+        },
+        parseDOM: [{ tag: "mark" }],
       },
     },
   });
@@ -87,39 +93,17 @@ const Suspended = () => {
         "Mod-y": redo,
         "Mod-b"(state, dispatch) {
           if (!dispatch) return false;
-
-          let selectionIsBold = true;
-
-          state.doc.nodesBetween(
-            state.selection.from,
-            state.selection.to,
-            (node) => {
-              if (!selectionIsBold) return false;
-
-              const isBold = node.marks.includes(schema.mark("strong"));
-              if (!isBold && node.isLeaf) {
-                selectionIsBold = false;
-              }
-              return !isBold;
-            },
-          );
-          if (selectionIsBold) {
-            dispatch(
-              state.tr.removeMark(
-                state.selection.from,
-                state.selection.to,
-                schema.mark("strong"),
-              ),
-            );
-          } else {
-            dispatch(
-              state.tr.addMark(
-                state.selection.from,
-                state.selection.to,
-                schema.mark("strong"),
-              ),
-            );
-          }
+          dispatch(toggleMark(state, schema.mark("bold")));
+          return true;
+        },
+        "Mod-i"(state, dispatch) {
+          if (!dispatch) return false;
+          dispatch(toggleMark(state, schema.mark("italic")));
+          return true;
+        },
+        "Mod-shift-h"(state, dispatch) {
+          if (!dispatch) return false;
+          dispatch(toggleMark(state, schema.mark("highlight")));
           return true;
         },
       }),
@@ -169,4 +153,23 @@ function BlockRenderer({ id }: { id: string }) {
       {block()?.content}
     </fika-block>
   );
+}
+
+function toggleMark(state: EditorState, mark: Mark): Transaction {
+  let selectionIsBold = true;
+
+  state.doc.nodesBetween(state.selection.from, state.selection.to, (node) => {
+    if (!selectionIsBold) return false;
+
+    const isBold = node.marks.includes(mark);
+    if (!isBold && node.isLeaf) {
+      selectionIsBold = false;
+    }
+    return !isBold;
+  });
+  if (selectionIsBold) {
+    return state.tr.removeMark(state.selection.from, state.selection.to, mark);
+  } else {
+    return state.tr.addMark(state.selection.from, state.selection.to, mark);
+  }
 }
