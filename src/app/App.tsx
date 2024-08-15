@@ -7,7 +7,7 @@ import {
   Suspense,
 } from "solid-js";
 import { blockSchema, rep, type Entry } from "./cache.js";
-import { EditorState } from "prosemirror-state";
+import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
@@ -39,6 +39,7 @@ const Suspended = () => {
         toDOM() {
           return ["p", 0];
         },
+        marks: "_",
       },
       blockquote: {
         content: "block+",
@@ -49,6 +50,24 @@ const Suspended = () => {
         },
       },
       text: { inline: true },
+    },
+    marks: {
+      strong: {
+        toDOM() {
+          return ["strong", 0];
+        },
+        parseDOM: [
+          { tag: "strong" },
+          { tag: "b" },
+          { style: "font-weight=bold" },
+        ],
+      },
+      em: {
+        toDOM() {
+          return ["em", 0];
+        },
+        parseDOM: [{ tag: "em" }, { tag: "i" }, { style: "font-style=italic" }],
+      },
     },
   });
 
@@ -66,6 +85,38 @@ const Suspended = () => {
       keymap({
         "Mod-z": undo,
         "Mod-y": redo,
+        "Mod-b"(state, dispatch) {
+          if (!dispatch) return false;
+
+          let isBold = true;
+
+          state.doc.nodesBetween(
+            state.selection.from,
+            state.selection.to,
+            (node) => {
+              isBold = node.marks.includes(schema.mark("strong"));
+              return !isBold;
+            },
+          );
+          if (isBold) {
+            dispatch(
+              state.tr.removeMark(
+                state.selection.from,
+                state.selection.to,
+                schema.mark("strong"),
+              ),
+            );
+          } else {
+            dispatch(
+              state.tr.addMark(
+                state.selection.from,
+                state.selection.to,
+                schema.mark("strong"),
+              ),
+            );
+          }
+          return true;
+        },
       }),
       keymap(baseKeymap),
     ],
@@ -85,11 +136,10 @@ const Suspended = () => {
           const view = new EditorView(el, {
             state,
             dispatchTransaction(transaction) {
-              // transaction.insertText("new text");
-              const { before, doc } = transaction;
-              console.log(
-                `went from ${before.content.size} to ${doc.content.size}`,
-              );
+              // const { before, doc } = transaction;
+              // console.log(
+              //   `went from ${before.content.size} to ${doc.content.size}`,
+              // );
               const newState = view.state.apply(transaction);
               view.updateState(newState);
             },
