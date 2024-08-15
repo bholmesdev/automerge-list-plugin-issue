@@ -88,17 +88,22 @@ const Suspended = () => {
         "Mod-b"(state, dispatch) {
           if (!dispatch) return false;
 
-          let isBold = true;
+          let selectionIsBold = true;
 
           state.doc.nodesBetween(
             state.selection.from,
             state.selection.to,
             (node) => {
-              isBold = node.marks.includes(schema.mark("strong"));
+              if (!selectionIsBold) return false;
+
+              const isBold = node.marks.includes(schema.mark("strong"));
+              if (!isBold && node.isLeaf) {
+                selectionIsBold = false;
+              }
               return !isBold;
             },
           );
-          if (isBold) {
+          if (selectionIsBold) {
             dispatch(
               state.tr.removeMark(
                 state.selection.from,
