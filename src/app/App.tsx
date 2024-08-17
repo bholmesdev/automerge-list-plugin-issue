@@ -12,7 +12,6 @@ import {
   orderedListShortcutPlugin,
   schema,
 } from "./plugins.js";
-import applyDevTools from "prosemirror-dev-tools";
 
 export function App() {
   return (
@@ -78,20 +77,17 @@ const Suspended = () => {
         {draft()?.title}
       </h1>
       <div
+        class="focus:outline-none mt-4"
         ref={(el) => {
-          const view = new EditorView(el, {
-            state,
-            dispatchTransaction(transaction) {
-              // const { before, doc } = transaction;
-              // console.log(
-              //   `went from ${before.content.size} to ${doc.content.size}`,
-              // );
-              const newState = view.state.apply(transaction);
-              view.updateState(newState);
+          const view = new EditorView(
+            (editor) => {
+              editor.className = el.className;
+              el.replaceWith(editor);
             },
-          });
+            { state },
+          );
         }}
-      />
+      ></div>
     </article>
   );
 };
