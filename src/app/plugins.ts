@@ -1,5 +1,5 @@
 import { Schema, type Node } from "prosemirror-model";
-import { Plugin, TextSelection } from "prosemirror-state";
+import { Plugin, TextSelection, Transaction } from "prosemirror-state";
 import {
   nodes as nodesBase,
   marks as marksBase,
@@ -89,11 +89,7 @@ export function headingShortcutPlugin() {
           const tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith($from.start(), $from.end(), heading);
-          tr.setSelection(
-            new TextSelection(
-              tr.doc.resolve(view.state.selection.from - state.offset),
-            ),
-          );
+          restoreSelection(tr, view.state.selection.from - state.offset);
           view.dispatch(tr);
           return true;
         }
@@ -161,9 +157,8 @@ export function listShortcutPlugin() {
           let tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
-          tr.setSelection(
-            new TextSelection(tr.doc.resolve(view.state.selection.from)),
-          );
+          // TODO: learn about mappings. Cursor is incorrect when merging nodes.
+          restoreSelection(tr, view.state.selection.from);
           view.dispatch(tr);
           return true;
         }
@@ -198,6 +193,7 @@ export function orderedListShortcutPlugin() {
       handleKeyDown(view, event) {
         // TODO: handle multi-digit numbers
         const state = plugin.getState(view.state) ?? init;
+        const { selection } = view.state;
         const { $from } = view.state.selection;
         if (NUMBERS.includes(event.key) && $from.parentOffset === 0) {
           view.dispatch(
@@ -206,7 +202,7 @@ export function orderedListShortcutPlugin() {
                 lastInput: "number",
                 start: parseInt(event.key),
               })
-              .insertText(event.key, view.state.selection.from),
+              .insertText(event.key, selection.from),
           );
           return true;
         }
@@ -217,7 +213,7 @@ export function orderedListShortcutPlugin() {
                 lastInput: "period",
                 start: state.start,
               })
-              .insertText(".", view.state.selection.from),
+              .insertText(".", selection.from),
           );
           return true;
         }
@@ -251,9 +247,8 @@ export function orderedListShortcutPlugin() {
           let tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
-          tr.setSelection(
-            new TextSelection(tr.doc.resolve(view.state.selection.from)),
-          );
+          // TODO: learn about mappings. Cursor is incorrect when merging nodes.
+          restoreSelection(tr, selection.from - 1);
           view.dispatch(tr);
           return true;
         }
@@ -263,4 +258,8 @@ export function orderedListShortcutPlugin() {
     },
   });
   return plugin;
+}
+
+function restoreSelection(tr: Transaction, position: number) {
+  return tr.setSelection(new TextSelection(tr.doc.resolve(position)));
 }
