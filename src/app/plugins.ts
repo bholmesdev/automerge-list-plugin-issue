@@ -179,29 +179,31 @@ export function listShortcutPlugin() {
             $from.start() + 1,
           );
           view.dispatch(deletion);
-          const $$from = deletion.doc.resolve($from.start());
+          const resolved = deletion.doc.resolve($from.start());
           const li = schema.node(
             "list_item",
-            { id: $$from.parent.attrs.id },
-            $$from.parent.content.cut(0, $$from.parent.content.size),
+            { id: resolved.parent.attrs.id },
+            resolved.parent.content.cut(0, resolved.parent.content.size),
           );
           const nodeBefore = view.state.doc.resolve(
-            $$from.start() - 1,
+            resolved.start() - 1,
           ).nodeBefore;
-          const nodeAfter = view.state.doc.resolve($$from.end() + 1).nodeAfter;
+          const nodeAfter = view.state.doc.resolve(
+            resolved.end() + 1,
+          ).nodeAfter;
 
           const children: Node[] = [];
-          let rangeStart = $$from.start();
-          let rangeEnd = $$from.end();
+          let rangeStart = resolved.start();
+          let rangeEnd = resolved.end();
 
           if (nodeBefore?.type.name === "bulleted_list") {
             nodeBefore.forEach((node) => children.push(node));
-            rangeStart = $$from.start() - nodeBefore.nodeSize;
+            rangeStart = resolved.start() - nodeBefore.nodeSize;
           }
           children.push(li);
           if (nodeAfter?.type.name === "bulleted_list") {
             nodeAfter.forEach((node) => children.push(node));
-            rangeEnd = $$from.end() + nodeAfter.nodeSize;
+            rangeEnd = resolved.end() + nodeAfter.nodeSize;
           }
           const list = schema.node("bulleted_list", null, children);
           let tr = view.state.tr
@@ -274,33 +276,38 @@ export function orderedListShortcutPlugin() {
           return true;
         }
         if (state.lastInput === "period" && event.key === " ") {
+          const deletion = view.state.tr.delete(
+            $from.start(),
+            $from.start() + state.start.toString().length + 1,
+          );
+          view.dispatch(deletion);
+          const resolved = deletion.doc.resolve($from.start());
           const li = schema.node(
             "list_item",
-            { id: $from.parent.attrs.id },
-            $from.parent.content.cut(
-              state.start?.toString().length + 1,
-              $from.parent.content.size,
-            ),
+            { id: resolved.parent.attrs.id },
+            resolved.parent.content.cut(0, resolved.parent.content.size),
           );
           const nodeBefore = view.state.doc.resolve(
-            $from.start() - 1,
+            resolved.start() - 1,
           ).nodeBefore;
-          const nodeAfter = view.state.doc.resolve($from.end() + 1).nodeAfter;
+          const nodeAfter = view.state.doc.resolve(
+            resolved.end() + 1,
+          ).nodeAfter;
 
           const children: Node[] = [];
-          let rangeStart = $from.start();
-          let rangeEnd = $from.end();
+          let rangeStart = resolved.start();
+          let rangeEnd = resolved.end();
 
           let start = state.start;
           if (nodeBefore?.type.name === "ordered_list") {
             nodeBefore.forEach((node) => children.push(node));
-            rangeStart = $from.start() - nodeBefore.nodeSize;
+            rangeStart = resolved.start() - nodeBefore.nodeSize;
             start = nodeBefore.attrs.start;
           }
           children.push(li);
           if (nodeAfter?.type.name === "ordered_list") {
             nodeAfter.forEach((node) => children.push(node));
-            rangeEnd = $from.end() + nodeAfter.nodeSize;
+            rangeEnd = resolved.end() + nodeAfter.nodeSize;
           }
           const list = schema.node("ordered_list", { start }, children);
           let tr = view.state.tr
