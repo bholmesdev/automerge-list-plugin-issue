@@ -128,7 +128,7 @@ export function listShortcutPlugin() {
               .setMeta(plugin, {
                 active: true,
               })
-              .insertText("-", view.state.selection.from),
+              .insertText(event.key, view.state.selection.from),
           );
           return true;
         }
@@ -176,9 +176,10 @@ export function listShortcutPlugin() {
 const NUMBERS = alphabet("0-9");
 
 export function orderedListShortcutPlugin() {
-  const init: { lastInput: "none" | "number" | "period"; start?: number } = {
+  const init:
+    | { lastInput: "none"; start: undefined }
+    | { lastInput: "number" | "period"; start: number } = {
     lastInput: "none",
-    start: undefined,
   };
   const plugin = new Plugin({
     state: {
@@ -194,16 +195,21 @@ export function orderedListShortcutPlugin() {
     },
     props: {
       handleKeyDown(view, event) {
-        // TODO: handle multi-digit numbers
         const state = plugin.getState(view.state) ?? init;
         const { selection } = view.state;
         const { $from } = view.state.selection;
-        if (NUMBERS.includes(event.key) && $from.parentOffset === 0) {
+        if (
+          NUMBERS.includes(event.key) &&
+          ($from.parentOffset === 0 || state.lastInput === "number")
+        ) {
+          console.log("start", parseInt(`${state.start}${event.key}`));
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
                 lastInput: "number",
-                start: parseInt(event.key),
+                start: parseInt(
+                  state.start ? `${state.start}${event.key}` : event.key,
+                ),
               })
               .insertText(event.key, selection.from),
           );
@@ -224,7 +230,10 @@ export function orderedListShortcutPlugin() {
           const li = schema.node(
             "list_item",
             null,
-            $from.parent.content.cut(2, $from.parent.content.size),
+            $from.parent.content.cut(
+              state.start?.toString().length + 1,
+              $from.parent.content.size,
+            ),
           );
           const nodeBefore = view.state.doc.resolve(
             $from.start() - 1,
@@ -251,7 +260,7 @@ export function orderedListShortcutPlugin() {
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
           // TODO: learn about mappings. Cursor is incorrect when merging nodes.
-          restoreSelection(tr, selection.from - 1);
+          restoreSelection(tr, selection.from - state.start.toString().length);
           view.dispatch(tr);
           return true;
         }
