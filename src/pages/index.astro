@@ -17,6 +17,12 @@ import { App } from "../app/App";
 </html>
 
 <style is:global>
+    html::view-transition-group(*) {
+        animation-duration: 0.15s;
+        animation-timing-function: cubic-bezier(0, 0, 0, 1);
+        animation-fill-mode: both;
+    }
+
     article h3 {
         font-size: theme(fontSize.xl);
         margin-block-start: 3rem;

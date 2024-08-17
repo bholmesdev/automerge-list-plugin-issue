@@ -1,5 +1,5 @@
 import { createResource, Suspense } from "solid-js";
-import { blockSchema, rep } from "./cache.js";
+import { blockSchema, createID, rep } from "./cache.js";
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
@@ -30,9 +30,11 @@ const Suspended = () => {
   });
 
   const doc = schema.node("doc", null, [
-    schema.node("paragraph", null, [schema.text("One.")]),
-    schema.node("paragraph", { style: "color:red" }, [schema.text("Two.")]),
-    schema.node("paragraph", null, [schema.text("Three!")]),
+    schema.node("paragraph", { id: createID("block") }, [schema.text("One.")]),
+    schema.node("paragraph", { id: createID("block") }, [schema.text("Two.")]),
+    schema.node("paragraph", { id: createID("block") }, [
+      schema.text("Three!"),
+    ]),
   ]);
 
   const state = EditorState.create({

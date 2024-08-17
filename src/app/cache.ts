@@ -5,7 +5,8 @@ import { createSignal } from "solid-js";
 import Slugger from "github-slugger";
 import { alphabet, generateRandomString } from "oslo/crypto";
 
-const createID = () => generateRandomString(8, alphabet("a-z", "A-Z", "0-9"));
+export const createID = (prefix = "") =>
+  prefix + generateRandomString(8, alphabet("a-z", "A-Z", "0-9"));
 
 type BlockID = string;
 

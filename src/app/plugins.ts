@@ -5,6 +5,8 @@ import {
   marks as marksBase,
 } from "prosemirror-schema-basic";
 import { alphabet } from "oslo/crypto";
+import type { EditorView } from "prosemirror-view";
+import { createID } from "./cache.js";
 
 export const schema = new Schema({
   nodes: {
@@ -12,26 +14,59 @@ export const schema = new Schema({
     bulleted_list: {
       content: "list_item+",
       group: "block",
+      attrs: { id: { default: null } },
       parseDOM: [{ tag: "ul" }],
       toDOM(node) {
-        return ["ul", 0];
+        return ["ul", getIDAttrs(node.attrs.id ?? createID()), 0];
+      },
+    },
+    paragraph: {
+      ...nodesBase.paragraph,
+      attrs: { id: { default: null } },
+      toDOM(node) {
+        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
+        return ["p", { id }, ["span", { style }, 0]];
+      },
+    },
+    heading: {
+      ...nodesBase.heading,
+      attrs: {
+        id: { default: null },
+        level: { default: 1, validate: "number" },
+      },
+      toDOM(node) {
+        console.log(node.attrs);
+        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
+        return ["h" + node.attrs.level, { id }, ["span", { style }, 0]];
       },
     },
     ordered_list: {
       content: "list_item+",
       group: "block",
-      attrs: { start: { default: 1, validate: "number" } },
+      attrs: {
+        start: { default: 1, validate: "number" },
+        id: { default: null },
+      },
       parseDOM: [{ tag: "ol" }],
       toDOM(node) {
-        return ["ol", { start: node.attrs.start }, 0];
+        return [
+          "ol",
+          {
+            start: node.attrs.start,
+            ...getIDAttrs(node.attrs.id ?? createID()),
+          },
+          0,
+        ];
       },
     },
     list_item: {
       // TODO: revisit paragraphs within li
       content: "inline*",
+      attrs: { id: { default: null } },
       parseDOM: [{ tag: "li" }],
-      toDOM() {
-        return ["li", 0];
+      toDOM(node) {
+        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
+        return ["li", { id }, ["span", { style }, 0]];
       },
     },
   },
@@ -48,7 +83,10 @@ export const schema = new Schema({
 
 export function headingShortcutPlugin() {
   const LEVELS = 6;
-  const init = { active: false, offset: 0 };
+  const init: { lastInput: "none" | "#"; offset: number } = {
+    lastInput: "none",
+    offset: 0,
+  };
   const plugin = new Plugin({
     state: {
       init() {
@@ -73,27 +111,30 @@ export function headingShortcutPlugin() {
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
-                active: true,
+                lastInput: "#",
                 offset: state.offset + 1,
               })
-              .insertText("#", view.state.selection.from),
+              .insertText("#", $from.start()),
           );
           return true;
         }
-        if (state.offset > 0 && event.key === " ") {
+        if (state.lastInput === "#" && event.key === " ") {
+          const deletion = view.state.tr.delete(
+            $from.start(),
+            $from.start() + state.offset,
+          );
+          const resolved = deletion.doc.resolve($from.start());
+          view.dispatch(deletion);
           const tr = view.state.tr
             .setMeta(plugin, init)
             .setBlockType(
-              $from.start(),
-              $from.end(),
+              resolved.start(),
+              resolved.end(),
               schema.node("heading").type,
-              { level: state.offset },
-            )
-            .delete(
-              view.state.selection.from - state.offset,
-              view.state.selection.from,
+              { level: state.offset, id: resolved.parent.attrs.id },
             );
-          view.dispatch(tr);
+          // .delete($from.start(), $from.start() + state.offset);
+          dispatchViewTransition(view, tr);
           return true;
         }
         view.dispatch(view.state.tr.setMeta(plugin, init));
@@ -133,28 +174,34 @@ export function listShortcutPlugin() {
           return true;
         }
         if (active && event.key === " ") {
+          const deletion = view.state.tr.delete(
+            $from.start(),
+            $from.start() + 1,
+          );
+          view.dispatch(deletion);
+          const $$from = deletion.doc.resolve($from.start());
           const li = schema.node(
             "list_item",
-            null,
-            $from.parent.content.cut(1, $from.parent.content.size),
+            { id: $$from.parent.attrs.id },
+            $$from.parent.content.cut(0, $$from.parent.content.size),
           );
           const nodeBefore = view.state.doc.resolve(
-            $from.start() - 1,
+            $$from.start() - 1,
           ).nodeBefore;
-          const nodeAfter = view.state.doc.resolve($from.end() + 1).nodeAfter;
+          const nodeAfter = view.state.doc.resolve($$from.end() + 1).nodeAfter;
 
           const children: Node[] = [];
-          let rangeStart = $from.start();
-          let rangeEnd = $from.end();
+          let rangeStart = $$from.start();
+          let rangeEnd = $$from.end();
 
           if (nodeBefore?.type.name === "bulleted_list") {
             nodeBefore.forEach((node) => children.push(node));
-            rangeStart = $from.start() - nodeBefore.nodeSize;
+            rangeStart = $$from.start() - nodeBefore.nodeSize;
           }
           children.push(li);
           if (nodeAfter?.type.name === "bulleted_list") {
             nodeAfter.forEach((node) => children.push(node));
-            rangeEnd = $from.end() + nodeAfter.nodeSize;
+            rangeEnd = $$from.end() + nodeAfter.nodeSize;
           }
           const list = schema.node("bulleted_list", null, children);
           let tr = view.state.tr
@@ -162,7 +209,7 @@ export function listShortcutPlugin() {
             .replaceRangeWith(rangeStart, rangeEnd, list);
           // TODO: learn about mappings. Cursor is incorrect when merging nodes.
           restoreSelection(tr, view.state.selection.from);
-          view.dispatch(tr);
+          dispatchViewTransition(view, tr);
           return true;
         }
         view.dispatch(view.state.tr.setMeta(plugin, init));
@@ -229,7 +276,7 @@ export function orderedListShortcutPlugin() {
         if (state.lastInput === "period" && event.key === " ") {
           const li = schema.node(
             "list_item",
-            null,
+            { id: $from.parent.attrs.id },
             $from.parent.content.cut(
               state.start?.toString().length + 1,
               $from.parent.content.size,
@@ -261,7 +308,7 @@ export function orderedListShortcutPlugin() {
             .replaceRangeWith(rangeStart, rangeEnd, list);
           // TODO: learn about mappings. Cursor is incorrect when merging nodes.
           restoreSelection(tr, selection.from - state.start.toString().length);
-          view.dispatch(tr);
+          dispatchViewTransition(view, tr);
           return true;
         }
         view.dispatch(view.state.tr.setMeta(plugin, init));
@@ -274,4 +321,21 @@ export function orderedListShortcutPlugin() {
 
 function restoreSelection(tr: Transaction, position: number) {
   return tr.setSelection(new TextSelection(tr.doc.resolve(position)));
+}
+
+function dispatchViewTransition(view: EditorView, tr: Transaction) {
+  if (
+    "startViewTransition" in document &&
+    typeof document.startViewTransition === "function"
+  ) {
+    document.startViewTransition(() => {
+      view.dispatch(tr);
+    });
+  } else {
+    view.dispatch(tr);
+  }
+}
+
+function getIDAttrs(id: string) {
+  return { id, style: `view-transition-name: ${id};` };
 }
