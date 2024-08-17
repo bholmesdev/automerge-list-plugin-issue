@@ -81,15 +81,18 @@ export function headingShortcutPlugin() {
           return true;
         }
         if (state.offset > 0 && event.key === " ") {
-          const heading = schema.node(
-            "heading",
-            { level: state.offset },
-            $from.parent.content.cut(state.offset, $from.parent.content.size),
-          );
           const tr = view.state.tr
             .setMeta(plugin, init)
-            .replaceRangeWith($from.start(), $from.end(), heading);
-          restoreSelection(tr, view.state.selection.from - state.offset);
+            .setBlockType(
+              $from.start(),
+              $from.end(),
+              schema.node("heading").type,
+              { level: state.offset },
+            )
+            .delete(
+              view.state.selection.from - state.offset,
+              view.state.selection.from,
+            );
           view.dispatch(tr);
           return true;
         }
