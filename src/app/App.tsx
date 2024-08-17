@@ -9,6 +9,7 @@ import { Mark } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
+  orderedListShortcutPlugin,
   schema,
 } from "./plugins.js";
 import applyDevTools from "prosemirror-dev-tools";
@@ -40,6 +41,7 @@ const Suspended = () => {
     plugins: [
       headingShortcutPlugin(),
       listShortcutPlugin(),
+      orderedListShortcutPlugin(),
       history(),
       keymap({
         "Mod-z": undo,
