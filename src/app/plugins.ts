@@ -194,20 +194,18 @@ export function listShortcutPlugin() {
           const children: Node[] = [];
           let rangeStart = resolved.start();
           let rangeEnd = resolved.end();
-          let selectionToRestore = view.state.selection.from;
+          let selectionToRestore = resolved.start() + 1;
 
           if (nodeBefore?.type.name === "bulleted_list") {
             nodeBefore.forEach((node) => children.push(node));
             rangeStart = resolved.start() - nodeBefore.nodeSize;
             // Account for collapsed blocks when joining
-            selectionToRestore = view.state.selection.from - 1;
+            selectionToRestore -= 2;
           }
           children.push(li);
           if (nodeAfter?.type.name === "bulleted_list") {
             nodeAfter.forEach((node) => children.push(node));
             rangeEnd = resolved.end() + nodeAfter.nodeSize;
-            // Account for collapsed blocks when joining
-            selectionToRestore = view.state.selection.from - 1;
           }
           const list = schema.node("bulleted_list", null, children);
           let tr = view.state.tr
@@ -300,12 +298,15 @@ export function orderedListShortcutPlugin() {
           const children: Node[] = [];
           let rangeStart = resolved.start();
           let rangeEnd = resolved.end();
+          let selectionToRestore = resolved.start() + 1;
 
           let start = state.start;
           if (nodeBefore?.type.name === "ordered_list") {
             nodeBefore.forEach((node) => children.push(node));
             rangeStart = resolved.start() - nodeBefore.nodeSize;
             start = nodeBefore.attrs.start;
+            // Account for collapsed blocks when joining
+            selectionToRestore -= 2;
           }
           children.push(li);
           if (nodeAfter?.type.name === "ordered_list") {
@@ -317,7 +318,7 @@ export function orderedListShortcutPlugin() {
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
           // TODO: learn about mappings. Cursor is incorrect when merging nodes.
-          restoreSelection(tr, selection.from - state.start.toString().length);
+          restoreSelection(tr, selectionToRestore);
           dispatchViewTransition(view, tr);
           return true;
         }
