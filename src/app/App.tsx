@@ -1,18 +1,12 @@
-import {
-  createEffect,
-  createResource,
-  createSignal,
-  lazy,
-  Show,
-  Suspense,
-} from "solid-js";
-import { blockSchema, rep, type Entry } from "./cache.js";
+import { createResource, Suspense } from "solid-js";
+import { blockSchema, rep } from "./cache.js";
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Mark, Schema } from "prosemirror-model";
+import { Mark } from "prosemirror-model";
+import { headingShortcutPlugin, schema } from "./plugins.js";
 
 export function App() {
   return (
@@ -29,54 +23,6 @@ const Suspended = () => {
     return rep.mutate.createDraftEntry();
   });
 
-  const schema = new Schema({
-    nodes: {
-      doc: { content: "block+" },
-      paragraph: {
-        content: "text*",
-        group: "block",
-        parseDOM: [{ tag: "p" }],
-        toDOM() {
-          return ["p", 0];
-        },
-        marks: "_",
-      },
-      blockquote: {
-        content: "block+",
-        group: "block",
-        parseDOM: [{ tag: "blockquote" }],
-        toDOM() {
-          return ["blockquote", 0];
-        },
-      },
-      text: { inline: true },
-    },
-    marks: {
-      bold: {
-        toDOM() {
-          return ["strong", 0];
-        },
-        parseDOM: [
-          { tag: "strong" },
-          { tag: "b" },
-          { style: "font-weight=bold" },
-        ],
-      },
-      italic: {
-        toDOM() {
-          return ["em", 0];
-        },
-        parseDOM: [{ tag: "em" }, { tag: "i" }, { style: "font-style=italic" }],
-      },
-      highlight: {
-        toDOM() {
-          return ["mark", 0];
-        },
-        parseDOM: [{ tag: "mark" }],
-      },
-    },
-  });
-
   const doc = schema.node("doc", null, [
     schema.node("paragraph", null, [schema.text("One.")]),
     schema.node("paragraph", { style: "color:red" }, [schema.text("One.")]),
@@ -87,18 +33,19 @@ const Suspended = () => {
     doc,
     schema,
     plugins: [
+      headingShortcutPlugin(),
       history(),
       keymap({
         "Mod-z": undo,
         "Mod-y": redo,
         "Mod-b"(state, dispatch) {
           if (!dispatch) return false;
-          dispatch(toggleMark(state, schema.mark("bold")));
+          dispatch(toggleMark(state, schema.mark("strong")));
           return true;
         },
         "Mod-i"(state, dispatch) {
           if (!dispatch) return false;
-          dispatch(toggleMark(state, schema.mark("italic")));
+          dispatch(toggleMark(state, schema.mark("em")));
           return true;
         },
         "Mod-shift-h"(state, dispatch) {
