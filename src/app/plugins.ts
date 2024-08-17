@@ -124,6 +124,7 @@ export function headingShortcutPlugin() {
             $from.start() + state.offset,
           );
           const resolved = deletion.doc.resolve($from.start());
+          padDuringTransition($from.parent.attrs.id, state.offset);
           view.dispatch(deletion);
           const tr = view.state.tr
             .setMeta(plugin, init)
@@ -177,6 +178,7 @@ export function listShortcutPlugin() {
             $from.start(),
             $from.start() + 1,
           );
+          padDuringTransition($from.parent.attrs.id);
           view.dispatch(deletion);
           const resolved = deletion.doc.resolve($from.start());
           const li = schema.node(
@@ -281,6 +283,10 @@ export function orderedListShortcutPlugin() {
             $from.start(),
             $from.start() + state.start.toString().length + 1,
           );
+          padDuringTransition(
+            $from.parent.attrs.id,
+            state.start.toString().length,
+          );
           view.dispatch(deletion);
           const resolved = deletion.doc.resolve($from.start());
           const li = schema.node(
@@ -349,4 +355,10 @@ function dispatchViewTransition(view: EditorView, tr: Transaction) {
 
 function getIDAttrs(id: string) {
   return { id, style: `view-transition-name: ${id};` };
+}
+
+function padDuringTransition(id: string, ch = 1) {
+  const el = document.getElementById(id)!;
+  if (!el) return;
+  el.setAttribute("style", `margin-inline-start: ${ch}ch;`);
 }
