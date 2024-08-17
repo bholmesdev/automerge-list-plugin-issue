@@ -6,7 +6,12 @@ import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
 import { Mark } from "prosemirror-model";
-import { headingShortcutPlugin, schema } from "./plugins.js";
+import {
+  headingShortcutPlugin,
+  listShortcutPlugin,
+  schema,
+} from "./plugins.js";
+import applyDevTools from "prosemirror-dev-tools";
 
 export function App() {
   return (
@@ -25,8 +30,8 @@ const Suspended = () => {
 
   const doc = schema.node("doc", null, [
     schema.node("paragraph", null, [schema.text("One.")]),
-    schema.node("paragraph", { style: "color:red" }, [schema.text("One.")]),
-    schema.node("paragraph", null, [schema.text("Two!")]),
+    schema.node("paragraph", { style: "color:red" }, [schema.text("Two.")]),
+    schema.node("paragraph", null, [schema.text("Three!")]),
   ]);
 
   const state = EditorState.create({
@@ -34,6 +39,7 @@ const Suspended = () => {
     schema,
     plugins: [
       headingShortcutPlugin(),
+      listShortcutPlugin(),
       history(),
       keymap({
         "Mod-z": undo,
