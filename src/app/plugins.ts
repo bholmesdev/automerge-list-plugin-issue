@@ -63,11 +63,10 @@ export function headingShortcutPlugin() {
     },
     props: {
       handleKeyDown(view, event) {
-        const { offset, active } = plugin.getState(view.state) ?? init;
-        const { $from, from } = view.state.selection;
-        const { parentOffset } = view.state.selection.$from;
-        if (event.key === "#" && parentOffset === offset) {
-          if (offset + 1 > LEVELS) {
+        const state = plugin.getState(view.state) ?? init;
+        const { $from } = view.state.selection;
+        if (event.key === "#" && $from.parentOffset === state.offset) {
+          if (state.offset + 1 > LEVELS) {
             view.dispatch(view.state.tr.setMeta(plugin, init));
             return false;
           }
@@ -75,22 +74,26 @@ export function headingShortcutPlugin() {
             view.state.tr
               .setMeta(plugin, {
                 active: true,
-                offset: offset + 1,
+                offset: state.offset + 1,
               })
               .insertText("#", view.state.selection.from),
           );
           return true;
         }
-        if (offset > 0 && event.key === " ") {
+        if (state.offset > 0 && event.key === " ") {
           const heading = schema.node(
             "heading",
-            { level: offset },
-            $from.parent.content.cut(offset, $from.parent.content.size),
+            { level: state.offset },
+            $from.parent.content.cut(state.offset, $from.parent.content.size),
           );
           const tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith($from.start(), $from.end(), heading);
-          tr.setSelection(new TextSelection(tr.doc.resolve(from - offset)));
+          tr.setSelection(
+            new TextSelection(
+              tr.doc.resolve(view.state.selection.from - state.offset),
+            ),
+          );
           view.dispatch(tr);
           return true;
         }
@@ -119,9 +122,8 @@ export function listShortcutPlugin() {
     props: {
       handleKeyDown(view, event) {
         const { active } = plugin.getState(view.state) ?? init;
-        const { $from, from } = view.state.selection;
-        const { parentOffset } = view.state.selection.$from;
-        if (event.key === "-" && parentOffset === 0) {
+        const { $from } = view.state.selection;
+        if (event.key === "-" && $from.parentOffset === 0) {
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
@@ -159,7 +161,9 @@ export function listShortcutPlugin() {
           let tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
-          tr.setSelection(new TextSelection(tr.doc.resolve(from)));
+          tr.setSelection(
+            new TextSelection(tr.doc.resolve(view.state.selection.from)),
+          );
           view.dispatch(tr);
           return true;
         }
@@ -193,10 +197,9 @@ export function orderedListShortcutPlugin() {
     props: {
       handleKeyDown(view, event) {
         // TODO: handle multi-digit numbers
-        const { lastInput, start } = plugin.getState(view.state) ?? init;
-        const { $from, from } = view.state.selection;
-        const { parentOffset } = view.state.selection.$from;
-        if (NUMBERS.includes(event.key) && parentOffset === 0) {
+        const state = plugin.getState(view.state) ?? init;
+        const { $from } = view.state.selection;
+        if (NUMBERS.includes(event.key) && $from.parentOffset === 0) {
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
@@ -207,18 +210,18 @@ export function orderedListShortcutPlugin() {
           );
           return true;
         }
-        if (lastInput === "number" && event.key === ".") {
+        if (state.lastInput === "number" && event.key === ".") {
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
                 lastInput: "period",
-                start,
+                start: state.start,
               })
               .insertText(".", view.state.selection.from),
           );
           return true;
         }
-        if (lastInput === "period" && event.key === " ") {
+        if (state.lastInput === "period" && event.key === " ") {
           const li = schema.node(
             "list_item",
             null,
@@ -233,26 +236,24 @@ export function orderedListShortcutPlugin() {
           let rangeStart = $from.start();
           let rangeEnd = $from.end();
 
-          let startValue = start;
+          let start = state.start;
           if (nodeBefore?.type.name === "ordered_list") {
             nodeBefore.forEach((node) => children.push(node));
             rangeStart = $from.start() - nodeBefore.nodeSize;
-            startValue = nodeBefore.attrs.start;
+            start = nodeBefore.attrs.start;
           }
           children.push(li);
           if (nodeAfter?.type.name === "ordered_list") {
             nodeAfter.forEach((node) => children.push(node));
             rangeEnd = $from.end() + nodeAfter.nodeSize;
           }
-          const list = schema.node(
-            "ordered_list",
-            { start: startValue },
-            children,
-          );
+          const list = schema.node("ordered_list", { start }, children);
           let tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
-          tr.setSelection(new TextSelection(tr.doc.resolve(from)));
+          tr.setSelection(
+            new TextSelection(tr.doc.resolve(view.state.selection.from)),
+          );
           view.dispatch(tr);
           return true;
         }
