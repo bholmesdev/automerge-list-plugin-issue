@@ -133,7 +133,6 @@ export function headingShortcutPlugin() {
               schema.node("heading").type,
               { level: state.offset, id: resolved.parent.attrs.id },
             );
-          // .delete($from.start(), $from.start() + state.offset);
           dispatchViewTransition(view, tr);
           return true;
         }
@@ -195,22 +194,26 @@ export function listShortcutPlugin() {
           const children: Node[] = [];
           let rangeStart = resolved.start();
           let rangeEnd = resolved.end();
+          let selectionToRestore = view.state.selection.from;
 
           if (nodeBefore?.type.name === "bulleted_list") {
             nodeBefore.forEach((node) => children.push(node));
             rangeStart = resolved.start() - nodeBefore.nodeSize;
+            // Account for collapsed blocks when joining
+            selectionToRestore = view.state.selection.from - 1;
           }
           children.push(li);
           if (nodeAfter?.type.name === "bulleted_list") {
             nodeAfter.forEach((node) => children.push(node));
             rangeEnd = resolved.end() + nodeAfter.nodeSize;
+            // Account for collapsed blocks when joining
+            selectionToRestore = view.state.selection.from - 1;
           }
           const list = schema.node("bulleted_list", null, children);
           let tr = view.state.tr
             .setMeta(plugin, init)
             .replaceRangeWith(rangeStart, rangeEnd, list);
-          // TODO: learn about mappings. Cursor is incorrect when merging nodes.
-          restoreSelection(tr, view.state.selection.from);
+          restoreSelection(tr, selectionToRestore);
           dispatchViewTransition(view, tr);
           return true;
         }
