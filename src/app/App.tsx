@@ -217,7 +217,10 @@ function LinkPopover(props: { editorView: EditorView }) {
         }
       }}
       onFocusOut={(e) => {
-        if (!el?.contains(e.relatedTarget as any)) {
+        if (
+          !el?.contains(e.relatedTarget as any) &&
+          e.relatedTarget !== markToLink.get(activeMark())
+        ) {
           setActiveMark(null);
         }
       }}
@@ -241,7 +244,7 @@ function LinkPopover(props: { editorView: EditorView }) {
 
               const { state } = props.editorView;
               const newMark = schema.marks.link.create({ href });
-              let tr = state.tr.setMeta("updated-link", true);
+              let tr = state.tr;
               state.doc.nodesBetween(0, state.doc.content.size, (node, pos) => {
                 if (!node.marks.includes(mark)) return true;
 
