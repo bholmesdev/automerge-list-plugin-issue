@@ -10,8 +10,8 @@ import {
   headingShortcutPlugin,
   listShortcutPlugin,
   orderedListShortcutPlugin,
-  schema,
 } from "./plugins.js";
+import { schema } from "./schema.js";
 
 export function App() {
   return (
@@ -96,6 +96,8 @@ function BlockRenderer({ id }: { id: string }) {
   );
 }
 
+// Learned about $from.marks() from source:
+// https://github.com/ProseMirror/prosemirror-commands/blob/master/src/commands.ts#L602
 function toggleMark(mark: MarkType, attrs?: Attrs): Command {
   return (state, dispatch): boolean => {
     if (!dispatch) return false;

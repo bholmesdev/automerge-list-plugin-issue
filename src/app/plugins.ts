@@ -1,84 +1,8 @@
-import { Schema, type Node } from "prosemirror-model";
+import { type Node } from "prosemirror-model";
 import { Plugin, TextSelection, Transaction } from "prosemirror-state";
-import {
-  nodes as nodesBase,
-  marks as marksBase,
-} from "prosemirror-schema-basic";
 import { alphabet } from "oslo/crypto";
 import type { EditorView } from "prosemirror-view";
-import { createID } from "./cache.js";
-
-export const schema = new Schema({
-  nodes: {
-    ...nodesBase,
-    bulleted_list: {
-      content: "list_item+",
-      group: "block",
-      attrs: { id: { default: null } },
-      parseDOM: [{ tag: "ul" }],
-      toDOM(node) {
-        return ["ul", getIDAttrs(node.attrs.id ?? createID()), 0];
-      },
-    },
-    paragraph: {
-      ...nodesBase.paragraph,
-      attrs: { id: { default: null } },
-      toDOM(node) {
-        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
-        return ["p", { id }, ["span", { style }, 0]];
-      },
-    },
-    heading: {
-      ...nodesBase.heading,
-      attrs: {
-        id: { default: null },
-        level: { default: 1, validate: "number" },
-      },
-      toDOM(node) {
-        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
-        return ["h" + node.attrs.level, { id }, ["span", { style }, 0]];
-      },
-    },
-    ordered_list: {
-      content: "list_item+",
-      group: "block",
-      attrs: {
-        start: { default: 1, validate: "number" },
-        id: { default: null },
-      },
-      parseDOM: [{ tag: "ol" }],
-      toDOM(node) {
-        return [
-          "ol",
-          {
-            start: node.attrs.start,
-            ...getIDAttrs(node.attrs.id ?? createID()),
-          },
-          0,
-        ];
-      },
-    },
-    list_item: {
-      // TODO: revisit paragraphs within li
-      content: "inline*",
-      attrs: { id: { default: null } },
-      parseDOM: [{ tag: "li" }],
-      toDOM(node) {
-        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
-        return ["li", { id }, ["span", { style }, 0]];
-      },
-    },
-  },
-  marks: {
-    ...marksBase,
-    highlight: {
-      toDOM() {
-        return ["mark", 0];
-      },
-      parseDOM: [{ tag: "mark" }],
-    },
-  },
-});
+import { schema } from "./schema.js";
 
 export function headingShortcutPlugin() {
   const LEVELS = 6;
@@ -349,10 +273,6 @@ function dispatchViewTransition(view: EditorView, tr: Transaction) {
   } else {
     view.dispatch(tr);
   }
-}
-
-function getIDAttrs(id: string) {
-  return { id, style: `view-transition-name: ${id};` };
 }
 
 function padDuringTransition(id: string, ch = 1) {
