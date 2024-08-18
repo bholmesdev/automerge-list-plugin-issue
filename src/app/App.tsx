@@ -1,11 +1,11 @@
 import { createResource, Suspense } from "solid-js";
 import { blockSchema, createID, rep } from "./cache.js";
-import { EditorState, Transaction } from "prosemirror-state";
+import { EditorState, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Mark } from "prosemirror-model";
+import { type MarkType, type Attrs } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
@@ -47,21 +47,9 @@ const Suspended = () => {
       keymap({
         "Mod-z": undo,
         "Mod-y": redo,
-        "Mod-b"(state, dispatch) {
-          if (!dispatch) return false;
-          dispatch(toggleMark(state, schema.mark("strong")));
-          return true;
-        },
-        "Mod-i"(state, dispatch) {
-          if (!dispatch) return false;
-          dispatch(toggleMark(state, schema.mark("em")));
-          return true;
-        },
-        "Mod-shift-h"(state, dispatch) {
-          if (!dispatch) return false;
-          dispatch(toggleMark(state, schema.mark("highlight")));
-          return true;
-        },
+        "Mod-b": toggleMark(schema.marks.strong),
+        "Mod-i": toggleMark(schema.marks.em),
+        "Mod-shift-h": toggleMark(schema.marks.highlight),
       }),
       keymap(baseKeymap),
     ],
@@ -108,21 +96,42 @@ function BlockRenderer({ id }: { id: string }) {
   );
 }
 
-function toggleMark(state: EditorState, mark: Mark): Transaction {
-  let selectionIsBold = true;
+function toggleMark(mark: MarkType, attrs?: Attrs): Command {
+  return (state, dispatch): boolean => {
+    if (!dispatch) return false;
 
-  state.doc.nodesBetween(state.selection.from, state.selection.to, (node) => {
-    if (!selectionIsBold) return false;
-
-    const isBold = node.marks.includes(mark);
-    if (!isBold && node.isLeaf) {
-      selectionIsBold = false;
+    const { $from } = state.selection;
+    if (mark.isInSet(state.storedMarks ?? $from.marks())) {
+      dispatch(state.tr.removeStoredMark(mark));
+    } else {
+      dispatch(state.tr.addStoredMark(mark.create(attrs)));
     }
-    return !isBold;
-  });
-  if (selectionIsBold) {
-    return state.tr.removeMark(state.selection.from, state.selection.to, mark);
-  } else {
-    return state.tr.addMark(state.selection.from, state.selection.to, mark);
-  }
+
+    if (state.selection.from === state.selection.to) return true;
+
+    let isActive = true;
+    state.doc.nodesBetween(state.selection.from, state.selection.to, (node) => {
+      if (!isActive) return false;
+
+      const isAlreadyToggled = mark.isInSet(node.marks);
+      if (!isAlreadyToggled && node.isLeaf) {
+        isActive = false;
+      }
+      return !isAlreadyToggled;
+    });
+    if (isActive) {
+      dispatch(
+        state.tr.removeMark(state.selection.from, state.selection.to, mark),
+      );
+    } else {
+      dispatch(
+        state.tr.addMark(
+          state.selection.from,
+          state.selection.to,
+          mark.create(attrs),
+        ),
+      );
+    }
+    return true;
+  };
 }
