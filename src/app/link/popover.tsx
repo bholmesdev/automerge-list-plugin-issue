@@ -60,6 +60,7 @@ export function LinkPopover(props: { editorView: EditorView }) {
           onSubmit={(e) => {
             e.preventDefault();
             setActiveMark(null);
+            prevActiveEl()?.focus();
           }}
         >
           <input
@@ -67,6 +68,7 @@ export function LinkPopover(props: { editorView: EditorView }) {
             type="text"
             name="link"
             value={activeMark()?.attrs.href}
+            placeholder="Enter link URL"
             onInput={(e) => {
               const href = e.target.value;
               const mark = activeMark();
