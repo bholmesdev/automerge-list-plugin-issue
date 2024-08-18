@@ -35,7 +35,6 @@ export const schema = new Schema({
         level: { default: 1, validate: "number" },
       },
       toDOM(node) {
-        console.log(node.attrs);
         const { id, style } = getIDAttrs(node.attrs.id ?? createID());
         return ["h" + node.attrs.level, { id }, ["span", { style }, 0]];
       },
@@ -254,7 +253,6 @@ export function orderedListShortcutPlugin() {
           NUMBERS.includes(event.key) &&
           ($from.parentOffset === 0 || state.lastInput === "number")
         ) {
-          console.log("start", parseInt(`${state.start}${event.key}`));
           view.dispatch(
             view.state.tr
               .setMeta(plugin, {
