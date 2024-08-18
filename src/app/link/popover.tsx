@@ -1,6 +1,6 @@
-import { createEffect, createRoot, createSignal } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
-import type { EditorView, MarkViewConstructor } from "prosemirror-view";
+import type { EditorView } from "prosemirror-view";
 import { activeMark, markToLink, setActiveMark } from "./view";
 import { schema } from "../schema";
 

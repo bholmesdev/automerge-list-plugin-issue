@@ -1,26 +1,18 @@
-import {
-  createEffect,
-  createResource,
-  createRoot,
-  createSignal,
-  Show,
-  Suspense,
-} from "solid-js";
+import { createResource, createSignal, Show, Suspense } from "solid-js";
 import { createID, rep } from "./cache.js";
 import { EditorState, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { type MarkType, type Attrs, Mark } from "prosemirror-model";
+import { type MarkType, type Attrs } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
   orderedListShortcutPlugin,
 } from "./plugins.js";
 import { schema } from "./schema.js";
-import { computePosition, flip, offset, shift } from "@floating-ui/dom";
-import { LinkPopover } from "./link/popover.tsx";
+import { LinkPopover } from "./link/popover.jsx";
 import { linkView } from "./link/view.jsx";
 
 export function App() {
