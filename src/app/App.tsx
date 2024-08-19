@@ -5,15 +5,15 @@ import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { type MarkType, type Attrs, Mark } from "prosemirror-model";
+import { Mark } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
   orderedListShortcutPlugin,
 } from "./plugins.js";
 import { schema } from "./schema.js";
-import { LinkPopover } from "./link/popover.jsx";
-import { linkView, setActiveMark } from "./link/view.jsx";
+import { LinkPopover, toggleLinkPopover } from "./link/popover.jsx";
+import { linkView } from "./link/view.jsx";
 
 export function App() {
   return (
@@ -64,7 +64,10 @@ const Suspended = () => {
             href: "",
           });
           const handled = toggleMark(mark, "focus-end")(state, dispatch);
-          if (handled) setActiveMark(mark);
+          const el = editorView()?.domAtPos(state.selection.from);
+          const anchor =
+            el?.node instanceof HTMLElement ? el.node : el?.node.parentElement;
+          if (handled) toggleLinkPopover(anchor ?? document.body, mark);
           return handled;
         },
       }),

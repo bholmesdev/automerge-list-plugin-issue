@@ -1,57 +1,75 @@
 import { createEffect, createSignal } from "solid-js";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import type { EditorView } from "prosemirror-view";
-import { activeMark, markToLink, setActiveMark } from "./view";
 import { schema } from "../schema";
+import type { Mark } from "prosemirror-model";
+
+export let popoverEl: HTMLDivElement | undefined;
+const [active, setActive] = createSignal<{
+  mark: Mark;
+  linkEl: HTMLElement;
+} | null>(null);
+
+export async function toggleLinkPopover(linkEl: HTMLElement, mark: Mark) {
+  if (!popoverEl) return;
+  const { x, y } = await computePosition(linkEl, popoverEl, {
+    placement: "top",
+    middleware: [offset(), flip(), shift()],
+  });
+  Object.assign(popoverEl.style, {
+    left: `${x}px`,
+    top: `${y + 5}px`,
+  });
+
+  setActive((activeLink) =>
+    activeLink?.linkEl === linkEl
+      ? null
+      : {
+          mark,
+          linkEl,
+        },
+  );
+}
 
 export function LinkPopover(props: { editorView: EditorView }) {
-  let el: HTMLDivElement | undefined;
   let inputEl: HTMLInputElement | undefined;
   const [prevActiveEl, setPrevActiveEl] = createSignal<HTMLElement | null>(
     null,
   );
 
   createEffect(() => {
-    const mark = activeMark();
-    const link = mark ? markToLink.get(mark) : undefined;
-    if (!el || !mark || !link) return;
+    const mark = active();
+    if (!inputEl || !mark) return;
 
-    setPrevActiveEl(document.activeElement as HTMLElement);
-    inputEl?.focus();
-
-    computePosition(link, el, {
-      placement: "top",
-      middleware: [offset(), flip(), shift()],
-    }).then(({ x, y }) => {
-      Object.assign(el.style, {
-        left: `${x}px`,
-        top: `${y}px`,
-      });
-    });
+    if (document.activeElement instanceof HTMLElement) {
+      setPrevActiveEl(document.activeElement);
+    }
+    inputEl.focus();
   });
+
   return (
     <div
       id="tooltip"
       role="tooltip"
       style="view-transition-name: link-popover"
       classList={{
-        block: Boolean(activeMark()),
-        hidden: !Boolean(activeMark()),
+        "visible opacity-100": Boolean(active()),
+        "invisible opacity-0 pointer-events-none": !Boolean(active()),
       }}
-      ref={el}
-      class="w-max absolute px-5 py-1 top-0 left-0 bg-white border border-gray-200 rounded"
+      ref={popoverEl}
+      class="w-max absolute transition-opacity px-5 py-1 top-0 left-0 bg-white border border-gray-200 rounded"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
-          setActiveMark(null);
+          setActive(null);
           prevActiveEl()?.focus();
         }
       }}
       onFocusOut={(e) => {
         if (
-          !el?.contains(e.relatedTarget as any) &&
-          e.relatedTarget !== markToLink.get(activeMark()!)
+          !popoverEl?.contains(e.relatedTarget as any) &&
+          e.relatedTarget !== active()?.linkEl
         ) {
-          setActiveMark(null);
+          setActive(null);
         }
       }}
     >
@@ -59,7 +77,7 @@ export function LinkPopover(props: { editorView: EditorView }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setActiveMark(null);
+            setActive(null);
             prevActiveEl()?.focus();
           }}
         >
@@ -67,12 +85,13 @@ export function LinkPopover(props: { editorView: EditorView }) {
             ref={inputEl}
             type="text"
             name="link"
-            value={activeMark()?.attrs.href}
+            value={active()?.mark.attrs.href}
             placeholder="Enter link URL"
             onInput={(e) => {
               const href = e.target.value;
-              const mark = activeMark();
-              if (!mark) return;
+              const activeValue = active();
+              if (!activeValue) return;
+              const { mark, linkEl } = activeValue;
 
               const { state } = props.editorView;
               const newMark = schema.marks.link.create({ href });
@@ -83,14 +102,14 @@ export function LinkPopover(props: { editorView: EditorView }) {
                 tr = tr.addMark(pos, pos + node.nodeSize, newMark);
                 return true;
               });
-              setActiveMark(newMark);
+              setActive({ mark: newMark, linkEl });
 
               props.editorView.dispatch(tr);
             }}
           />
         </form>
         <a
-          href={activeMark()?.attrs.href}
+          href={active()?.mark.attrs.href}
           target="_blank"
           rel="noopener noreferrer"
         >
