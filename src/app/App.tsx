@@ -14,7 +14,7 @@ import {
 import { schema } from "./schema.js";
 import { LinkPopover, toggleLinkPopover } from "./link/popover.jsx";
 import { linkView } from "./link/view.jsx";
-import { splitToParagraph, toggleMark } from "./comands.js";
+import { splitToParagraph, toggleMark } from "./commands.js";
 
 export function App() {
   return (
