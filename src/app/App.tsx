@@ -70,6 +70,40 @@ const Suspended = () => {
           if (handled) toggleLinkPopover(anchor ?? document.body, mark);
           return handled;
         },
+        Backspace: (state, dispatch) => {
+          if (!dispatch) return false;
+          const { $from } = state.selection;
+          if ($from.parentOffset > 0) return false;
+          if ($from.parent.type === schema.node("paragraph").type) return false;
+
+          if ($from.parent.type === schema.node("list_item").type) {
+            let tr = state.tr;
+            if (state.doc.resolve($from.before()).nodeBefore) {
+              tr = tr.split($from.before());
+            }
+            const before = tr.mapping.map($from.before());
+            const after = tr.mapping.map($from.after());
+            tr = tr
+              .deleteRange(before, after)
+              .insert(
+                before - 1,
+                schema.node("paragraph", null, $from.parent.content),
+              )
+              .setSelection(TextSelection.create(tr.doc, before));
+
+            dispatch(tr);
+            return true;
+          }
+
+          const tr = state.tr.setBlockType(
+            $from.start(),
+            $from.end(),
+            schema.node("paragraph").type,
+          );
+
+          dispatch(tr);
+          return true;
+        },
       }),
       keymap(baseKeymap),
     ],
