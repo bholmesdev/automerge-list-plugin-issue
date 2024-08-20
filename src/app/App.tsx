@@ -1,11 +1,18 @@
-import { createResource, createSignal, Show, Suspense } from "solid-js";
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  Show,
+  Suspense,
+  from,
+} from "solid-js";
 import { createID, rep } from "./cache.js";
 import { EditorState, TextSelection, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Mark } from "prosemirror-model";
+import { Mark, Node } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
@@ -15,36 +22,38 @@ import { schema } from "./schema.js";
 import { LinkPopover, toggleLinkPopover } from "./link/popover.jsx";
 import { linkView } from "./link/view.jsx";
 import { splitToParagraph, toggleMark } from "./commands.js";
+import { db, type Block } from "./db.js";
+import { liveQuery } from "dexie";
 
 export function App() {
+  const document = from(
+    liveQuery(async () => {
+      const document = await db.documents.get(1);
+      if (!document) throw new Error("Document not found: 1");
+      return {
+        title: document.title,
+        blocks: await db.blocks
+          .where("documentId")
+          .equals(document.id)
+          .toArray(),
+      };
+    }),
+  );
   return (
     <main>
-      <Suspense fallback={<p>Loading</p>}>
-        <Suspended />
-      </Suspense>
+      <Show when={document()}>
+        {(doc) => <Editor title={doc().title} blocks={doc().blocks} />}
+      </Show>
     </main>
   );
 }
 
-const Suspended = () => {
-  const [draft] = createResource(async () => {
-    return rep.mutate.createDraftEntry();
-  });
-
-  const doc = schema.node("doc", null, [
-    schema.node("paragraph", { id: createID("block") }, [schema.text("One.")]),
-    schema.node("paragraph", { id: createID("block") }, [schema.text("Two.")]),
-    schema.node("paragraph", { id: createID("block") }, [
-      schema.text("Three!", [
-        schema.marks.link.create({ href: "https://example.com" }),
-      ]),
-    ]),
-    schema.node("paragraph", { id: createID("block") }, [
-      schema.text("Four?", [
-        schema.marks.link.create({ href: "https://google.com" }),
-      ]),
-    ]),
-  ]);
+const Editor = (props: { title: string; blocks: Block[] }) => {
+  const doc = schema.node(
+    "doc",
+    null,
+    props.blocks.map((block) => Node.fromJSON(schema, block.content)),
+  );
 
   const state = EditorState.create({
     doc,
@@ -90,13 +99,14 @@ const Suspended = () => {
   );
   return (
     <article class="max-w-prose mx-auto py-8">
-      <h1
-        contentEditable
-        onInput={(e) => rep.mutate.updateEntryTitle(e.target.textContent ?? "")}
+      <input
+        onInput={async (e) => {
+          const { value } = e.target;
+          await db.documents.update(1, { title: value });
+        }}
         class="text-2xl font-bold"
-      >
-        {draft()?.title}
-      </h1>
+        value={props.title}
+      />
       <div
         class="focus:outline-none mt-4"
         ref={(proseMirrorEl) => {
