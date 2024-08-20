@@ -118,6 +118,20 @@ const Editor = (props: { title: string; blocks: Block[] }) => {
             },
             {
               state,
+              async dispatchTransaction(tr) {
+                tr.doc.content.forEach(async (node) => {
+                  if (!node.attrs.id) return;
+                  await db.blocks.put({
+                    id: node.attrs.id,
+                    documentId: 1,
+                    content: node.toJSON(),
+                    text: node.textContent,
+                  });
+                });
+
+                const newState = view.state.apply(tr);
+                view.updateState(newState);
+              },
               markViews: {
                 link: linkView,
               },

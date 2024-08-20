@@ -9,7 +9,7 @@ type Document = {
 };
 
 export type Block = {
-  id: number;
+  id: string;
   documentId: number;
   text: string;
   content: Node;
@@ -22,7 +22,7 @@ export const db = new Dexie("fika") as Dexie & {
 
 db.version(1).stores({
   documents: "++id, title",
-  blocks: "++id, documentId, text, content",
+  blocks: "id, documentId, text, content",
 });
 
 const initialBlocks = [
@@ -48,7 +48,8 @@ db.on("populate", async (tr) => {
     });
   await Promise.all(
     initialBlocks.map((block) =>
-      tr.table<Omit<Block, "id">>("blocks").add({
+      tr.table<Block>("blocks").add({
+        id: block.attrs.id,
         documentId,
         text: block.textContent,
         content: block.toJSON(),
