@@ -19,11 +19,7 @@ export const schema = new Schema({
     },
     paragraph: {
       ...nodesBase.paragraph,
-      attrs: { id: { default: null } },
-      toDOM(node) {
-        const { id, style } = getIDAttrs(node.attrs.id ?? createID());
-        return ["p", { id }, ["span", { style }, 0]];
-      },
+      attrs: { id: { default: null, validate: "string|null" } },
     },
     heading: {
       ...nodesBase.heading,

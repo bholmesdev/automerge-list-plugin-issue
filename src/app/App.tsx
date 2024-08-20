@@ -16,6 +16,7 @@ import { linkView } from "./link/view.jsx";
 import { splitToParagraph, toggleMark } from "./commands.js";
 import { db, type Block } from "./db.js";
 import { liveQuery } from "dexie";
+import { ParagraphView } from "./node-views.js";
 
 export function App() {
   const document = from(
@@ -27,7 +28,7 @@ export function App() {
         blocks: await db.blocks
           .where("documentId")
           .equals(document.id)
-          .toArray(),
+          .sortBy("pos"),
       };
     }),
   );
@@ -44,7 +45,15 @@ const Editor = (props: { title: string; blocks: Block[] }) => {
   const doc = schema.node(
     "doc",
     null,
-    props.blocks.map((block) => Node.fromJSON(schema, block.content)),
+    props.blocks.map((block) =>
+      Node.fromJSON(schema, {
+        ...block.content,
+        attrs: {
+          ...block.content.attrs,
+          id: block.id,
+        },
+      }),
+    ),
   );
 
   const state = EditorState.create({
@@ -110,19 +119,10 @@ const Editor = (props: { title: string; blocks: Block[] }) => {
             },
             {
               state,
-              async dispatchTransaction(tr) {
-                tr.doc.content.forEach(async (node) => {
-                  if (!node.attrs.id) return;
-                  await db.blocks.put({
-                    id: node.attrs.id,
-                    documentId: 1,
-                    content: node.toJSON(),
-                    text: node.textContent,
-                  });
-                });
-
-                const newState = view.state.apply(tr);
-                view.updateState(newState);
+              nodeViews: {
+                paragraph: (node, view, getPos) => {
+                  return new ParagraphView(node, view, getPos);
+                },
               },
               markViews: {
                 link: linkView,
