@@ -1,18 +1,10 @@
-import {
-  createEffect,
-  createResource,
-  createSignal,
-  Show,
-  Suspense,
-  from,
-} from "solid-js";
-import { createID, rep } from "./cache.js";
-import { EditorState, TextSelection, type Command } from "prosemirror-state";
+import { createSignal, Show, from } from "solid-js";
+import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Mark, Node } from "prosemirror-model";
+import { Node } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,

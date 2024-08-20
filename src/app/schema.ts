@@ -3,7 +3,7 @@ import {
   nodes as nodesBase,
   marks as marksBase,
 } from "prosemirror-schema-basic";
-import { createID } from "./cache.js";
+import { createID } from "./db.js";
 
 export const schema = new Schema({
   nodes: {

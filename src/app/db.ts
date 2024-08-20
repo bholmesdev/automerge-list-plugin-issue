@@ -1,7 +1,11 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { Node } from "prosemirror-model";
-import { schema } from "./schema";
-import { createID } from "./cache";
+import { schema } from "./schema.js";
+import { generateRandomString, alphabet } from "oslo/crypto";
+
+export function createID(prefix?: string) {
+  return `${prefix ? prefix + "-" : ""}${generateRandomString(8, alphabet("A-Z", "a-z"))}`;
+}
 
 type Document = {
   id: number;
@@ -25,22 +29,22 @@ db.version(1).stores({
   blocks: "id, documentId, text, content",
 });
 
-const initialBlocks = [
-  schema.node("paragraph", { id: createID("block") }, [schema.text("One.")]),
-  schema.node("paragraph", { id: createID("block") }, [schema.text("Two.")]),
-  schema.node("paragraph", { id: createID("block") }, [
-    schema.text("Three!", [
-      schema.marks.link.create({ href: "https://example.com" }),
-    ]),
-  ]),
-  schema.node("paragraph", { id: createID("block") }, [
-    schema.text("Four!!!!", [
-      schema.marks.link.create({ href: "https://google.com" }),
-    ]),
-  ]),
-];
-
 db.on("populate", async (tr) => {
+  const initialBlocks = [
+    schema.node("paragraph", { id: createID("block") }, [schema.text("One.")]),
+    schema.node("paragraph", { id: createID("block") }, [schema.text("Two.")]),
+    schema.node("paragraph", { id: createID("block") }, [
+      schema.text("Three!", [
+        schema.marks.link.create({ href: "https://example.com" }),
+      ]),
+    ]),
+    schema.node("paragraph", { id: createID("block") }, [
+      schema.text("Four!!!!", [
+        schema.marks.link.create({ href: "https://google.com" }),
+      ]),
+    ]),
+  ];
+
   const documentId: number = await tr
     .table<Omit<Document, "id">>("documents")
     .add({
