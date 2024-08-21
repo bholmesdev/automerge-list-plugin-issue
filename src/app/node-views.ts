@@ -5,8 +5,7 @@ import type {
   EditorView,
   NodeView,
 } from "prosemirror-view";
-import { createID, db } from "./db";
-import { NodeSelection } from "prosemirror-state";
+import { relations, store } from "./db";
 
 export class ParagraphView implements NodeView {
   dom: HTMLElement;
@@ -16,62 +15,87 @@ export class ParagraphView implements NodeView {
   contentDOM?: HTMLElement | null | undefined;
 
   constructor(node: Node, view: EditorView, getPos: () => number | undefined) {
-    console.log(node, node.attrs.id);
+    console.log(node.attrs);
+
     this.dom = this.contentDOM = document.createElement("p");
-    this.id = node.attrs.id;
+    this.id = node.attrs.serverId;
     this.view = view;
     this.getPos = getPos;
 
-    if (!this.id) {
-      db.blocks
-        .add({
-          id: createID("block"),
-          documentId: 1,
-          text: node.textContent,
-          content: node.toJSON(),
-          pos: getPos() ?? view.state.doc.content.size,
-        })
-        .then(async (id) => {
-          this.id = id;
-          const nodePos = getPos();
-          if (nodePos === undefined) return;
-          view.dispatch(view.state.tr.setNodeAttribute(nodePos, "id", id));
+    if (this.id) return;
 
-          view.state.doc.nodesBetween(
-            nodePos,
-            view.state.doc.content.size,
-            (node, pos) => {
-              if (node.attrs.id) {
-                db.blocks.update(node.attrs.id, { pos });
-                return false;
-              }
-              return true;
-            }
-          );
-        });
-    }
+    const nodePos = getPos();
+    if (!nodePos) throw new Error("Unexpectedly cannot locate node");
+
+    this.id = store.addRow("blocks", {
+      type: "paragraph",
+      documentId: "draft",
+      // TODO: compute this
+      order: nodePos,
+      text: "",
+    })!;
+
+    // view.dispatch(view.state.tr.setNodeAttribute(nodePos, "id", this.id));
+    this.setOrderAfter();
   }
 
   update: (
     node: Node,
     decorations: readonly Decoration[],
-    innerDecorations: DecorationSource
+    innerDecorations: DecorationSource,
   ) => boolean = (node) => {
-    if (node.type.name !== "paragraph") return false;
-    if (!this.id) throw new Error("TODO: handle case where create is waiting.");
+    if (node.type.name !== "paragraph" || !this.id) return false;
 
-    db.blocks.put({
-      id: this.id,
-      documentId: 1,
+    store.setRow("blocks", this.id, {
+      ...store.getRow("blocks", this.id),
       text: node.textContent,
-      content: node.toJSON(),
-      pos: this.getPos() ?? this.view.state.doc.content.size,
+      order: this.getPos() ?? this.view.state.doc.content.size,
     });
+    const inlineIds = relations.getLocalRowIds("blockInline", this.id);
+    inlineIds.forEach((id) => {
+      store.delRow("inline", id);
+      const markIds = relations.getLocalRowIds("inlineMarks", id);
+      markIds.forEach((markId) => store.delRow("marks", markId));
+    });
+    node.content.forEach((node, _, index) => {
+      const inlineId = store.addRow("inline", {
+        content: node.textContent,
+        blockId: this.id,
+        order: index,
+      });
+      node.marks.forEach((mark) => {
+        store.addRow("marks", {
+          type: mark.type.name,
+          inlineId,
+        });
+      });
+    });
+    this.setOrderAfter();
     return true;
   };
 
+  setOrderAfter() {
+    const nodePos = this.getPos();
+    if (!nodePos) return;
+
+    this.view.state.doc.nodesBetween(
+      nodePos,
+      this.view.state.doc.content.size,
+      (node, pos) => {
+        if (node.attrs.id) {
+          store.setRow("blocks", node.attrs.id, {
+            ...store.getRow("blocks", node.attrs.id),
+            order: pos,
+          });
+          return false;
+        }
+        return true;
+      },
+    );
+  }
+
   destroy() {
     if (!this.id) throw new Error("TODO: handle case where create is waiting.");
-    db.blocks.delete(this.id);
+    store.delRow("blocks", this.id);
   }
 }

@@ -4,7 +4,6 @@ import { EditorView } from "prosemirror-view";
 import { undo, redo, history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Node } from "prosemirror-model";
 import {
   headingShortcutPlugin,
   listShortcutPlugin,
@@ -14,45 +13,39 @@ import { schema } from "./schema.js";
 import { LinkPopover, toggleLinkPopover } from "./link/popover.jsx";
 import { linkView } from "./link/view.jsx";
 import { splitToParagraph, toggleMark } from "./commands.js";
-import { db, type Block } from "./db.js";
-import { liveQuery } from "dexie";
+import { draft, store } from "./db.js";
 import { ParagraphView } from "./node-views.js";
+import type { BlocksRow, InlineRow, MarksRow } from "store:types";
 
 export function App() {
-  const document = from(
-    liveQuery(async () => {
-      const document = await db.documents.get(1);
-      if (!document) throw new Error("Document not found: 1");
-      return {
-        title: document.title,
-        blocks: await db.blocks
-          .where("documentId")
-          .equals(document.id)
-          .sortBy("pos"),
-      };
-    }),
-  );
   return (
     <main>
-      <Show when={document()}>
-        {(doc) => <Editor title={doc().title} blocks={doc().blocks} />}
-      </Show>
+      <Editor title={draft.title} blocks={draft.blocks} />
     </main>
   );
 }
 
-const Editor = (props: { title: string; blocks: Block[] }) => {
+const Editor = (props: {
+  title: string;
+  blocks: (BlocksRow & {
+    id: string;
+    inline: (InlineRow & { marks: MarksRow[] })[];
+  })[];
+}) => {
   const doc = schema.node(
     "doc",
     null,
     props.blocks.map((block) =>
-      Node.fromJSON(schema, {
-        ...block.content,
-        attrs: {
-          ...block.content.attrs,
-          id: block.id,
-        },
-      }),
+      schema.node(
+        block.type!,
+        { serverId: block.id },
+        block.inline.map((inline) =>
+          schema.text(
+            inline.content!,
+            inline.marks.map((mark) => schema.mark(mark.type!)),
+          ),
+        ),
+      ),
     ),
   );
 
@@ -103,7 +96,10 @@ const Editor = (props: { title: string; blocks: Block[] }) => {
       <input
         onInput={async (e) => {
           const { value } = e.target;
-          await db.documents.update(1, { title: value });
+          store.setRow("documents", "draft", {
+            ...store.getRow("documents", "draft"),
+            title: value,
+          });
         }}
         class="text-2xl font-bold"
         value={props.title}

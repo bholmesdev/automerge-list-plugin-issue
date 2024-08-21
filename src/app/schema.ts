@@ -19,7 +19,10 @@ export const schema = new Schema({
     },
     paragraph: {
       ...nodesBase.paragraph,
-      attrs: { id: { default: null, validate: "string|null" } },
+      attrs: {
+        id: { default: null, validate: "string|null" },
+        serverId: { default: null, validate: "string|null" },
+      },
     },
     heading: {
       ...nodesBase.heading,
@@ -54,7 +57,7 @@ export const schema = new Schema({
     list_item: {
       // TODO: revisit paragraphs within li
       content: "inline*",
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, serverId: { default: null } },
       parseDOM: [{ tag: "li" }],
       toDOM(node) {
         const { id, style } = getIDAttrs(node.attrs.id ?? createID());

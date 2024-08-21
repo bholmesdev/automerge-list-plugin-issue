@@ -1,7 +1,12 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "include": ["src/**/*", "astro.config.mjs", ".astro/store-types.d.ts"],
   "compilerOptions": {
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsxImportSource": "solid-js",
+    "baseUrl": ".",
+    "paths": {
+      "store:types": [".astro/store-types.d.ts"]
+    }
   }
 }
