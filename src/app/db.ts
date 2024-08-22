@@ -12,12 +12,11 @@ export function createID(prefix?: string) {
 }
 
 export const store = createStore().setTablesSchema({
-  documents: { title: { type: "string" } },
+  documents: { title: { type: "string", required: true } },
   blocks: {
-    type: { type: "string" },
-    text: { type: "string" },
-    documentId: { type: "string" },
-    order: { type: "number" },
+    type: { type: "string", required: true },
+    documentId: { type: "string", required: true },
+    order: { type: "number", required: true },
   },
   inline: {
     content: { type: "string" },
@@ -39,26 +38,24 @@ const defaultTables = {
     draft: { title: "Untitled" },
   },
   blocks: {
-    "block:1": {
+    "1": {
       type: "paragraph",
-      text: "Hello world",
       documentId: "draft",
-      order: 1,
+      order: "1",
     },
-    "block:2": {
+    "2": {
       type: "paragraph",
-      text: "Goodbye world",
       documentId: "draft",
-      order: 2,
+      order: "2",
     },
   },
   inline: {
-    "inline:1": { content: "Hello world", blockId: "block:1", order: 1 },
-    "inline:2": { content: "Goodbye world", blockId: "block:2", order: 1 },
+    "1": { content: "Hello world", blockId: "1", order: 1 },
+    "2": { content: "Goodbye world", blockId: "2", order: 1 },
   },
   marks: {
-    "mark:1": { type: "strong", inlineId: "inline:1" },
-    "mark:2": { type: "highlight", inlineId: "inline:2" },
+    "1": { type: "strong", inlineId: "1" },
+    "2": { type: "highlight", inlineId: "2" },
   },
 };
 await persister.startAutoLoad([defaultTables, {}]);
@@ -84,7 +81,6 @@ function getBlocks() {
   return blockIds
     .map((blockId) => {
       const block = store.getRow("blocks", blockId);
-      console.log("$$$block", block);
       return {
         ...block,
         id: blockId,
@@ -101,6 +97,7 @@ function getInline(blockId: string) {
       const inline = store.getRow("inline", inlineId);
       return {
         ...inline,
+        id: inlineId,
         marks: getMarks(inlineId),
       };
     })
