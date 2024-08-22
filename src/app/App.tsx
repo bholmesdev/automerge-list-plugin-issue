@@ -14,7 +14,7 @@ import { schema } from "./schema.js";
 import { LinkPopover, toggleLinkPopover } from "./link/popover.jsx";
 import { linkView } from "./link/view.jsx";
 import { splitToParagraph, toggleMark } from "./commands.js";
-import { draft, store } from "./db.js";
+import { draft, relations, store } from "./db.js";
 import type { BlocksRow, InlineRow, MarksRow } from "store:types";
 
 export function App() {
@@ -33,8 +33,8 @@ const Editor = (props: {
   })[];
 }) => {
   const blockNodes: Node[] = [];
-  const nodeToBlockId = new Map<Node, string>();
-  const nodeToInlineId = new Map<Node, string>();
+  const nodeToBlockId = new WeakMap<Node, string>();
+  const nodeToInlineId = new WeakMap<Node, string>();
 
   for (const block of props.blocks) {
     let inlineNodes: Node[] = [];
@@ -137,45 +137,11 @@ const Editor = (props: {
 
                 if (transaction.steps.length === 0) return;
 
-                view.state.doc.descendants((node, pos, parent, index) => {
-                  if (!node.isBlock) return false;
-
-                  const originalNode = posToOriginalNode.get(pos);
-                  const blockId = originalNode
-                    ? nodeToBlockId.get(originalNode)
-                    : undefined;
-                  if (!blockId) {
-                    console.log(
-                      "Creating block",
-                      node.type.name,
-                      pos,
-                      posToOriginalNode,
-                    );
-                    const id = store.addRow("blocks", {
-                      documentId: "draft",
-                      type: node.type.name,
-                      order: index + 1,
-                    });
-                    if (!id)
-                      throw new Error("Unexpected failure to create block");
-                    nodeToBlockId.set(node, id);
-                    return false;
-                  }
-                  store.setRow("blocks", blockId, {
-                    ...store.getRow("blocks", blockId),
-                    order: index + 1,
-                  });
-                  if (originalNode && node !== originalNode) {
-                    nodeToBlockId.set(node, blockId);
-                    updateInlineStore({
-                      blockPos: pos,
-                      nodeToInlineId,
-                      posToOriginalNode,
-                      blockNode: node,
-                      blockId,
-                    });
-                  }
-                  return true;
+                updateBlockStore({
+                  doc: view.state.doc,
+                  posToOriginalNode,
+                  nodeToBlockId,
+                  nodeToInlineId,
                 });
               },
               markViews: {
@@ -194,6 +160,51 @@ const Editor = (props: {
   );
 };
 
+function updateBlockStore({
+  doc,
+  posToOriginalNode,
+  nodeToBlockId,
+  nodeToInlineId,
+}: {
+  posToOriginalNode: Map<number, Node>;
+  nodeToBlockId: WeakMap<Node, string>;
+  nodeToInlineId: WeakMap<Node, string>;
+  doc: Node;
+}) {
+  doc.descendants((node, pos, parent, index) => {
+    if (!node.isBlock) return false;
+
+    const originalNode = posToOriginalNode.get(pos);
+    const blockId = originalNode ? nodeToBlockId.get(originalNode) : undefined;
+    if (!blockId) {
+      console.log("Creating block", node.type.name, pos, posToOriginalNode);
+      const id = store.addRow("blocks", {
+        documentId: "draft",
+        type: node.type.name,
+        order: index + 1,
+      });
+      if (!id) throw new Error("Unexpected failure to create block");
+      nodeToBlockId.set(node, id);
+      return false;
+    }
+    store.setRow("blocks", blockId, {
+      ...store.getRow("blocks", blockId),
+      order: index + 1,
+    });
+    if (originalNode && node !== originalNode) {
+      nodeToBlockId.set(node, blockId);
+      updateInlineStore({
+        blockPos: pos,
+        nodeToInlineId,
+        posToOriginalNode,
+        blockNode: node,
+        blockId,
+      });
+    }
+    return true;
+  });
+}
+
 function updateInlineStore({
   blockPos,
   nodeToInlineId,
@@ -202,7 +213,7 @@ function updateInlineStore({
   blockId,
 }: {
   blockPos: number;
-  nodeToInlineId: Map<Node, string>;
+  nodeToInlineId: WeakMap<Node, string>;
   posToOriginalNode: Map<number, Node>;
   blockNode: Node;
   blockId: string;
@@ -239,6 +250,17 @@ function updateInlineStore({
       content: node.text,
       order: index + 1,
     });
+    const markIds = relations.getLocalRowIds("inlineMarks", inlineId);
+    for (const mark of markIds) {
+      store.delRow("marks", mark);
+    }
+    for (const mark of node.marks) {
+      const markId = store.addRow("marks", {
+        type: mark.type.name,
+        inlineId,
+      });
+      if (!markId) throw new Error("Unexpected failure to create mark");
+    }
     return false;
   });
 }
