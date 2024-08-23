@@ -33,8 +33,8 @@ const Editor = (props: {
   })[];
 }) => {
   const blockNodes: Node[] = [];
-  const nodeToBlockId = new WeakMap<Node, string>();
-  const nodeToInlineId = new WeakMap<Node, string>();
+  const nodeToBlockId = new Map<Node, string>();
+  const nodeToInlineId = new Map<Node, string>();
 
   for (const block of props.blocks) {
     let inlineNodes: Node[] = [];
@@ -135,14 +135,65 @@ const Editor = (props: {
                 const newState = view.state.apply(transaction);
                 view.updateState(newState);
 
-                if (transaction.steps.length === 0) return;
-
-                updateBlockStore({
-                  doc: view.state.doc,
-                  posToOriginalNode,
-                  nodeToBlockId,
-                  nodeToInlineId,
+                const visitedBlocks = new Set<Node>();
+                const visitedInline = new Set<Node>();
+                view.state.doc.descendants((node, pos, parent, index) => {
+                  if (node.isBlock) {
+                    visitedBlocks.add(node);
+                    const originalNode = posToOriginalNode.get(pos);
+                    if (!originalNode) {
+                      const id = addBlock(node.type.name, index + 1);
+                      nodeToBlockId.set(node, id);
+                      return console.log("add:block", index);
+                    }
+                    const blockId = nodeToBlockId.get(originalNode);
+                    if (!blockId) throw new Error("original node not found");
+                    if (node !== originalNode)
+                      nodeToBlockId.delete(originalNode);
+                    nodeToBlockId.set(node, blockId);
+                    updateBlockOrder(blockId, index + 1);
+                    return console.log("update:block", blockId, index);
+                  }
+                  // TODO: optimize inline updates by cursor position
+                  if (node.isInline) {
+                    visitedInline.add(node);
+                    const originalNode = posToOriginalNode.get(pos);
+                    if (!originalNode) {
+                      if (!parent)
+                        throw new Error("Expected inline to have parent");
+                      const blockId = nodeToBlockId.get(parent);
+                      if (!blockId)
+                        throw new Error(
+                          "Expected inline to have parent block id",
+                        );
+                      const id = addInline(blockId, node.text!, index + 1);
+                      nodeToInlineId.set(node, id);
+                      return console.log("add:inline", index, pos);
+                    }
+                    const inlineId = nodeToInlineId.get(originalNode);
+                    if (!inlineId) throw new Error("original node not found");
+                    if (node !== originalNode)
+                      nodeToInlineId.delete(originalNode);
+                    nodeToInlineId.set(node, inlineId);
+                    updateInline(inlineId, node.text!, index + 1);
+                    return console.log("update:inline", inlineId, index, pos);
+                  }
+                  return false;
                 });
+                for (const [node, id] of nodeToBlockId) {
+                  if (!visitedBlocks.has(node)) {
+                    console.log("remove:block", node);
+                    deleteBlock(id);
+                    nodeToBlockId.delete(node);
+                  }
+                }
+                for (const [node, id] of nodeToInlineId) {
+                  if (!visitedInline.has(node)) {
+                    console.log("remove:inline", node);
+                    deleteInline(id);
+                    nodeToInlineId.delete(node);
+                  }
+                }
               },
               markViews: {
                 link: linkView,
@@ -160,107 +211,41 @@ const Editor = (props: {
   );
 };
 
-function updateBlockStore({
-  doc,
-  posToOriginalNode,
-  nodeToBlockId,
-  nodeToInlineId,
-}: {
-  posToOriginalNode: Map<number, Node>;
-  nodeToBlockId: WeakMap<Node, string>;
-  nodeToInlineId: WeakMap<Node, string>;
-  doc: Node;
-}) {
-  doc.descendants((node, pos, parent, index) => {
-    if (!node.isBlock) return false;
+function addBlock(type: string, order: number) {
+  return store.addRow("blocks", {
+    documentId: "draft",
+    type,
+    order,
+  })!;
+}
 
-    const originalNode = posToOriginalNode.get(pos);
-    const blockId = originalNode ? nodeToBlockId.get(originalNode) : undefined;
-    if (!blockId) {
-      console.log("Creating block", node.type.name, pos, posToOriginalNode);
-      const id = store.addRow("blocks", {
-        documentId: "draft",
-        type: node.type.name,
-        order: index + 1,
-      });
-      if (!id) throw new Error("Unexpected failure to create block");
-      nodeToBlockId.set(node, id);
-      return false;
-    }
-    store.setRow("blocks", blockId, {
-      ...store.getRow("blocks", blockId),
-      order: index + 1,
-    });
-    if (originalNode && node !== originalNode) {
-      nodeToBlockId.set(node, blockId);
-      updateInlineStore({
-        blockPos: pos,
-        nodeToInlineId,
-        posToOriginalNode,
-        blockNode: node,
-        blockId,
-      });
-    }
-    return true;
+function addInline(blockId: string, content: string, order: number) {
+  return store.addRow("inline", {
+    blockId,
+    content,
+    order,
+  })!;
+}
+
+function updateBlockOrder(id: string, order: number) {
+  store.setRow("blocks", id, {
+    ...store.getRow("blocks", id),
+    order,
   });
 }
 
-function updateInlineStore({
-  blockPos,
-  nodeToInlineId,
-  posToOriginalNode,
-  blockNode: blockNode,
-  blockId,
-}: {
-  blockPos: number;
-  nodeToInlineId: WeakMap<Node, string>;
-  posToOriginalNode: Map<number, Node>;
-  blockNode: Node;
-  blockId: string;
-}) {
-  blockNode.descendants((node, pos, _, index) => {
-    if (!node.isText) return false;
-    const originalInlineNode = posToOriginalNode.get(blockPos + pos + 1);
-    if (originalInlineNode && !originalInlineNode.isText)
-      throw new Error(
-        `Inline node of unexpected type: ${originalInlineNode.type.name}`,
-      );
-    const inlineId = originalInlineNode
-      ? nodeToInlineId.get(originalInlineNode)
-      : undefined;
-    if (!inlineId) {
-      console.log(
-        "Creating inline node",
-        node.text,
-        originalInlineNode,
-        nodeToInlineId,
-      );
-      const id = store.addRow("inline", {
-        blockId,
-        content: node.text,
-        order: index + 1,
-      });
-      if (!id) throw new Error("Unexpected failure to create inline");
-      nodeToInlineId.set(node, id);
-      return false;
-    }
-    nodeToInlineId.set(node, inlineId);
-    store.setRow("inline", inlineId, {
-      ...store.getRow("inline", inlineId),
-      content: node.text,
-      order: index + 1,
-    });
-    const markIds = relations.getLocalRowIds("inlineMarks", inlineId);
-    for (const mark of markIds) {
-      store.delRow("marks", mark);
-    }
-    for (const mark of node.marks) {
-      const markId = store.addRow("marks", {
-        type: mark.type.name,
-        inlineId,
-      });
-      if (!markId) throw new Error("Unexpected failure to create mark");
-    }
-    return false;
+function updateInline(id: string, content: string, order: number) {
+  store.setRow("inline", id, {
+    ...store.getRow("inline", id),
+    content,
+    order,
   });
+}
+
+function deleteBlock(id: string) {
+  store.delRow("blocks", id);
+}
+
+function deleteInline(id: string) {
+  store.delRow("inline", id);
 }
