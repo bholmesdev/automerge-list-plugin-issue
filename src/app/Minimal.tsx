@@ -13,7 +13,8 @@ import {
 } from "tinybase/with-schemas";
 
 export function App() {
-  const blocks = getBlocks();
+  const documentId = "draft";
+  const blocks = getBlocks(documentId);
   const doc = schema.node(
     "doc",
     null,
@@ -37,24 +38,36 @@ export function App() {
   return (
     <main class="grid grid-cols-2 gap-4">
       <div class="p-4">
-        <h1>{draft.title}</h1>
+        <h1>{store.getRow("documents", documentId).title}</h1>
         <article>
           <div
             class="focus:outline-none mt-4"
-            ref={(el) => editorRef(el, editorState)}
+            ref={(el) => {
+              const view = new EditorView(
+                (editor) => {
+                  editor.className = el.className;
+                  el.replaceWith(editor);
+                },
+                {
+                  state: editorState,
+                  dispatchTransaction: (transaction) =>
+                    dispatchTransaction(transaction, view, documentId),
+                },
+              );
+            }}
           />
         </article>
       </div>
-      <Debugger />
+      <Debugger documentId={documentId} />
     </main>
   );
 }
 
-function Debugger() {
-  const [blocks, setBlocks] = createSignal(getBlocks());
+function Debugger(props: { documentId: string }) {
+  const [blocks, setBlocks] = createSignal(getBlocks(props.documentId));
 
   const listener = store.addTablesListener(() => {
-    setBlocks(getBlocks());
+    setBlocks(getBlocks(props.documentId));
   });
 
   onCleanup(() => {
@@ -84,21 +97,13 @@ const schema = new Schema({
   marks: {},
 });
 
-function editorRef(el: HTMLElement, editorState: EditorState) {
-  const view = new EditorView(
-    (editor) => {
-      editor.className = el.className;
-      el.replaceWith(editor);
-    },
-    {
-      state: editorState,
-      dispatchTransaction: (transaction) =>
-        dispatchTransaction(transaction, view),
-    },
-  );
-}
+function editorRef(el: HTMLElement, editorState: EditorState, docu) {}
 
-function dispatchTransaction(transaction: Transaction, view: EditorView) {
+function dispatchTransaction(
+  transaction: Transaction,
+  view: EditorView,
+  documentId: string,
+) {
   if (transaction.steps.length === 0) {
     const newState = view.state.apply(transaction);
     view.updateState(newState);
@@ -108,7 +113,10 @@ function dispatchTransaction(transaction: Transaction, view: EditorView) {
   const newDoc = transaction.doc;
 
   const visitedBlocks = new Set<Id>();
-  for (const blockId of relations.getLocalRowIds("documentBlocks", "draft")) {
+  for (const blockId of relations.getLocalRowIds(
+    "documentBlocks",
+    documentId,
+  )) {
     visitedBlocks.add(blockId);
     const block = store.getRow("blocks", blockId);
     const pos = oldDoc.resolve(0).posAtIndex(block.index!);
@@ -125,8 +133,8 @@ function dispatchTransaction(transaction: Transaction, view: EditorView) {
       );
       if (!match) {
         store.addRow("blocks", {
+          documentId,
           type: node.type.name,
-          documentId: "draft",
           text: node.textContent,
           index,
         });
@@ -194,13 +202,8 @@ export const indexes = createIndexes(store).setIndexDefinition(
   "index",
 );
 
-store.addRow("documents", { title: "string" });
-
-const document = store.getRow("documents", "draft");
-export const draft = { title: document.title!, blocks: getBlocks() };
-
-function getBlocks() {
-  const blockIds = relations.getLocalRowIds("documentBlocks", "draft");
+function getBlocks(documentId: string) {
+  const blockIds = relations.getLocalRowIds("documentBlocks", documentId);
   return blockIds
     .map((blockId) => {
       const block = store.getRow("blocks", blockId);
