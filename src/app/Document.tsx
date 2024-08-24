@@ -4,7 +4,7 @@ import { keymap } from "prosemirror-keymap";
 import { Schema } from "prosemirror-model";
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import { indexes, store, relations, getBlocks } from "./store";
 import type { Id } from "tinybase/with-schemas";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
@@ -76,7 +76,9 @@ function Debugger(props: { documentId: string }) {
     store.getRow("documents", props.documentId),
   );
   const [blocks, setBlocks] = createSignal(getBlocks(props.documentId));
-  const [isOpen, setIsOpen] = createSignal(false);
+  const [isOpen, setIsOpen] = createSignal(
+    new URL(window.location.href).searchParams.has("debug"),
+  );
   let trigger: HTMLButtonElement | undefined;
   let panel: HTMLDivElement | undefined;
 
@@ -115,7 +117,10 @@ function Debugger(props: { documentId: string }) {
         Debug
       </button>
       <div
-        ref={panel}
+        ref={(el) => {
+          panel = el;
+          updatePosition();
+        }}
         classList={{
           invisible: !isOpen(),
           visible: isOpen(),
