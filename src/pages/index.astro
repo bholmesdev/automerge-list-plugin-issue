@@ -1,6 +1,6 @@
 ---
-import { DocumentView } from "../app/Document";
-import { Inspector } from "../dev-tools";
+import { AppView } from "../app/App";
+// import { Inspector } from "../dev-tools";
 ---
 
 <html lang="en">
@@ -12,8 +12,7 @@ import { Inspector } from "../dev-tools";
         <title>Astro</title>
     </head>
     <body>
-        <DocumentView client:only="solid" />
-        {import.meta.env.DEV && <Inspector client:only="react" />}
+        <AppView client:only="solid" />
     </body>
 </html>
 

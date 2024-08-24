@@ -7,6 +7,7 @@ import { EditorView } from "prosemirror-view";
 import { createSignal, onCleanup } from "solid-js";
 import { indexes, store, relations, getBlocks } from "./store";
 import type { Id } from "tinybase/with-schemas";
+import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 
 export function DocumentView() {
   const documentId = "draft";
@@ -32,48 +33,105 @@ export function DocumentView() {
   });
 
   return (
-    <main class="grid grid-cols-2 gap-4">
-      <div class="p-4">
-        <h1>{store.getRow("documents", documentId).title}</h1>
-        <article>
-          <div
-            class="focus:outline-none mt-4"
-            ref={(el) => {
-              const view = new EditorView(
-                (editor) => {
-                  editor.className = el.className;
-                  el.replaceWith(editor);
-                },
-                {
-                  state: editorState,
-                  dispatchTransaction: (transaction) =>
-                    syncDocumentStore(transaction, view, documentId),
-                },
-              );
-            }}
-          />
-        </article>
-      </div>
+    <div class="p-16 shadow-slate-100 shadow-2xl min-h-dvh">
+      <h1
+        class="text-5xl focus:outline-none"
+        contentEditable="plaintext-only"
+        onInput={(e) =>
+          store.setCell(
+            "documents",
+            documentId,
+            "title",
+            e.target.textContent ?? "",
+          )
+        }
+      >
+        {store.getRow("documents", documentId).title}
+      </h1>
+      <article>
+        <div
+          class="focus:outline-none mt-4"
+          ref={(el) => {
+            const view = new EditorView(
+              (editor) => {
+                editor.className = el.className;
+                el.replaceWith(editor);
+              },
+              {
+                state: editorState,
+                dispatchTransaction: (transaction) =>
+                  syncDocumentStore(transaction, view, documentId),
+              },
+            );
+          }}
+        />
+      </article>
       <Debugger documentId={documentId} />
-    </main>
+    </div>
   );
 }
 
 function Debugger(props: { documentId: string }) {
+  const [document, setDocument] = createSignal(
+    store.getRow("documents", props.documentId),
+  );
   const [blocks, setBlocks] = createSignal(getBlocks(props.documentId));
+  const [isOpen, setIsOpen] = createSignal(false);
+  let trigger: HTMLButtonElement | undefined;
+  let panel: HTMLDivElement | undefined;
 
-  const listener = store.addTablesListener(() => {
+  const listener = store.addTablesListener(async () => {
+    setDocument(store.getRow("documents", props.documentId));
     setBlocks(getBlocks(props.documentId));
+    await updatePosition();
   });
+
+  async function updatePosition() {
+    if (!trigger || !panel) return;
+    const { x, y } = await computePosition(trigger, panel, {
+      placement: "bottom-end",
+      middleware: [offset(), flip(), shift()],
+    });
+    Object.assign(panel.style, {
+      left: `${x}px`,
+      top: `${y + 6}px`,
+    });
+  }
 
   onCleanup(() => {
     store.delListener(listener);
   });
 
   return (
-    <pre class="bg-gray-800 text-white p-4 text-sm">
-      {JSON.stringify(blocks(), null, 2)}
-    </pre>
+    <>
+      <button
+        onClick={async () => {
+          setIsOpen((v) => !v);
+          await updatePosition();
+        }}
+        ref={trigger}
+        class="fixed bottom-4 right-4 bg-gray-800 text-white rounded px-2 py-1"
+      >
+        Debug
+      </button>
+      <div
+        ref={panel}
+        classList={{
+          invisible: !isOpen(),
+          visible: isOpen(),
+        }}
+        class="absolute p-4 bg-gray-800 flex-col gap-4 text-white max-w-md max-h-[95dvh] overflow-auto"
+      >
+        <h2>Document</h2>
+        <pre class="bg-gray-800 text-white p-4 text-sm">
+          {JSON.stringify(document(), null, 2)}
+        </pre>
+        <h2>Blocks</h2>
+        <pre class="bg-gray-800 text-white p-4 text-sm">
+          {JSON.stringify(blocks(), null, 2)}
+        </pre>
+      </div>
+    </>
   );
 }
 
