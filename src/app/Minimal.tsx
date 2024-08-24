@@ -1,4 +1,5 @@
 import { baseKeymap } from "prosemirror-commands";
+import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { Schema } from "prosemirror-model";
 import { EditorState, Transaction } from "prosemirror-state";
@@ -20,7 +21,18 @@ export function App() {
       schema.node("paragraph", null, schema.text(block.text!)),
     ),
   );
-  const editorState = EditorState.create({ doc, schema });
+  const editorState = EditorState.create({
+    doc,
+    schema,
+    plugins: [
+      history(),
+      keymap({
+        "Mod-z": undo,
+        "Mod-y": redo,
+      }),
+      keymap(baseKeymap),
+    ],
+  });
 
   return (
     <main class="grid grid-cols-2 gap-4">
@@ -80,7 +92,6 @@ function editorRef(el: HTMLElement, editorState: EditorState) {
     },
     {
       state: editorState,
-      plugins: [keymap(baseKeymap)],
       dispatchTransaction: (transaction) =>
         dispatchTransaction(transaction, view),
     },
