@@ -5,14 +5,10 @@ import { Schema } from "prosemirror-model";
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { createSignal, onCleanup } from "solid-js";
-import {
-  createIndexes,
-  createRelationships,
-  createStore,
-  type Id,
-} from "tinybase/with-schemas";
+import { indexes, store, relations, getBlocks } from "./store";
+import type { Id } from "tinybase/with-schemas";
 
-export function App() {
+export function DocumentView() {
   const documentId = "draft";
   const blocks = getBlocks(documentId);
   const doc = schema.node(
@@ -51,7 +47,7 @@ export function App() {
                 {
                   state: editorState,
                   dispatchTransaction: (transaction) =>
-                    dispatchTransaction(transaction, view, documentId),
+                    syncDocumentStore(transaction, view, documentId),
                 },
               );
             }}
@@ -81,7 +77,7 @@ function Debugger(props: { documentId: string }) {
   );
 }
 
-const schema = new Schema({
+export const schema = new Schema({
   nodes: {
     doc: { content: "block+" },
     paragraph: {
@@ -97,9 +93,7 @@ const schema = new Schema({
   marks: {},
 });
 
-function editorRef(el: HTMLElement, editorState: EditorState, docu) {}
-
-function dispatchTransaction(
+function syncDocumentStore(
   transaction: Transaction,
   view: EditorView,
   documentId: string,
@@ -151,66 +145,4 @@ function dispatchTransaction(
 
   const newState = view.state.apply(transaction);
   view.updateState(newState);
-}
-
-const store = createStore()
-  .setTablesSchema({
-    documents: { title: { type: "string", required: true } },
-    blocks: {
-      type: { type: "string", required: true },
-      documentId: { type: "string", required: true },
-      text: { type: "string" },
-      index: { type: "number", required: true },
-    },
-  })
-  .setTables({
-    documents: {
-      draft: { title: "Untitled" },
-    },
-    blocks: {
-      "1": {
-        type: "paragraph",
-        documentId: "draft",
-        text: "Hello world",
-        index: 0,
-      },
-      "2": {
-        type: "paragraph",
-        documentId: "draft",
-        text: "Goodbye world",
-        index: 1,
-      },
-      "3": {
-        type: "paragraph",
-        documentId: "draft",
-        text: "Welcome world",
-        index: 2,
-      },
-    },
-  });
-
-const relations = createRelationships(store).setRelationshipDefinition(
-  "documentBlocks",
-  "blocks",
-  "documents",
-  "documentId",
-);
-
-export const indexes = createIndexes(store).setIndexDefinition(
-  "blockIndex",
-  "blocks",
-  "index",
-);
-
-function getBlocks(documentId: string) {
-  const blockIds = relations.getLocalRowIds("documentBlocks", documentId);
-  return blockIds
-    .map((blockId) => {
-      const block = store.getRow("blocks", blockId);
-      return {
-        ...block,
-        id: blockId,
-      };
-    })
-    .sort((a, b) => a.index! - b.index!);
 }

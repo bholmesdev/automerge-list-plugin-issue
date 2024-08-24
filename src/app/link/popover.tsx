@@ -1,8 +1,8 @@
 import { createEffect, createSignal } from "solid-js";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import type { EditorView } from "prosemirror-view";
-import { schema } from "../schema";
 import type { Mark } from "prosemirror-model";
+import { schema } from "../Document";
 
 export let popoverEl: HTMLDivElement | undefined;
 const [active, setActive] = createSignal<{
@@ -94,6 +94,7 @@ export function LinkPopover(props: { editorView: EditorView }) {
               const { mark, linkEl } = activeValue;
 
               const { state } = props.editorView;
+              // TODO: implement link
               const newMark = schema.marks.link.create({ href });
               let tr = state.tr;
               state.doc.nodesBetween(0, state.doc.content.size, (node, pos) => {

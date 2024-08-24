@@ -26,7 +26,7 @@ export default defineConfig({
         },
         async "astro:server:setup"({ server, logger }) {
           server.watcher.on("all", (eventName, path) => {
-            if (path.endsWith("src/app/db.ts")) {
+            if (path.endsWith("src/app/store.ts")) {
               const [dTs] = createTools(store).getStoreApi("fika");
               writeFile(new URL("store-types.d.ts", dotAstroDir), dTs);
               logger.info("Updated store types");

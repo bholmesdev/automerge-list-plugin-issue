@@ -1,6 +1,6 @@
 import type { Mark } from "prosemirror-model";
 import { TextSelection, type Command } from "prosemirror-state";
-import { schema } from "./schema";
+import { schema } from "./Document";
 
 // Learned about $from.marks() from source:
 // https://github.com/ProseMirror/prosemirror-commands/blob/master/src/commands.ts#L602
@@ -47,6 +47,7 @@ export function splitToParagraph(): Command {
 
     const { $from } = state.selection;
     if ($from.parent.type === schema.node("paragraph").type) return false;
+    // TODO: implement list_item
     if ($from.parent.type === schema.node("list_item").type) {
       let tr = state.tr;
       if (state.doc.resolve($from.before()).nodeBefore) {
