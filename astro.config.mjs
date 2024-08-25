@@ -5,7 +5,9 @@ import tailwind from "@astrojs/tailwind";
 import { store } from "./src/app/store";
 import { mkdir, writeFile } from "node:fs/promises";
 import react from "@astrojs/react";
+
 let dotAstroDir;
+const getStoreTypesDir = () => new URL("store-types.d.ts", dotAstroDir);
 
 // https://astro.build/config
 export default defineConfig({
@@ -22,14 +24,17 @@ export default defineConfig({
           await mkdir(dotAstroDir, {
             recursive: true,
           });
-          await writeFile(new URL("store-types.d.ts", dotAstroDir), dTs);
+          await writeFile(getStoreTypesDir(), dTs);
           logger.info("Loaded store types");
         },
         async "astro:server:setup"({ server, logger }) {
-          server.watcher.on("all", (eventName, path) => {
+          server.watcher.on("all", async (eventName, path) => {
             if (path.endsWith("src/app/store.ts")) {
-              const [dTs] = createTools(store).getStoreApi("fika");
-              writeFile(new URL("store-types.d.ts", dotAstroDir), dTs);
+              const updatedStore = await server.ssrLoadModule(
+                `src/app/store.ts?timestamp=${Date.now()}`,
+              );
+              const [dTs] = createTools(updatedStore.store).getStoreApi("fika");
+              await writeFile(getStoreTypesDir(), dTs);
               logger.info("Updated store types");
             }
           });
