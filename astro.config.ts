@@ -21,7 +21,7 @@ export default defineConfig({
 
 function tinybaseTypes(): AstroIntegration {
   let dotAstroDir: URL;
-  const getStoreTypesDir = () => new URL("store-types.d.ts", dotAstroDir);
+  const getStoreTypesFile = () => new URL("store-types.d.ts", dotAstroDir);
 
   return {
     name: "tinybase:types",
@@ -33,7 +33,7 @@ function tinybaseTypes(): AstroIntegration {
         await mkdir(dotAstroDir, {
           recursive: true,
         });
-        await writeFile(getStoreTypesDir(), dTs);
+        await writeFile(getStoreTypesFile(), dTs);
         logger.info("Loaded store types");
       },
       async "astro:server:setup"({ server, logger }) {
@@ -43,7 +43,7 @@ function tinybaseTypes(): AstroIntegration {
               `src/app/store.ts?timestamp=${Date.now()}`,
             );
             const [dTs] = createTools(updatedStore.store).getStoreApi("fika");
-            await writeFile(getStoreTypesDir(), dTs);
+            await writeFile(getStoreTypesFile(), dTs);
             logger.info("Updated store types");
           }
         });
