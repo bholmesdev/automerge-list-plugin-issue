@@ -2,8 +2,12 @@
 
 import { Inspector as _Inspector } from "tinybase/ui-react-inspector";
 import { Provider } from "tinybase/ui-react";
-import { store } from "./app/db";
+import { store } from "./app/store";
 
 export function Inspector() {
-  return <Provider store={store}>{/*<_Inspector />*/}</Provider>;
+  return (
+    <Provider store={store}>
+      <_Inspector />
+    </Provider>
+  );
 }

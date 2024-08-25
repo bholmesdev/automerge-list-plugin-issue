@@ -10,28 +10,17 @@ import {
   store,
   relations,
   getBlocks,
-  getRelationIds,
-  useRelationsListener,
   useStoreListener,
+  useManyToManyIds,
+  useCell,
 } from "./store";
 import type { Id } from "tinybase/with-schemas";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { useParams } from "@solidjs/router";
 
-function getTags(docId: string): Array<[Id, string]> {
-  const tagIds = getRelationIds("docTagsJunction", docId, "tagId");
-  return tagIds.map((id) => [id, store.getCell("tags", id, "name")!]);
-}
-
 export function DocumentView() {
   const { id: docId } = useParams();
-  const [tags, setTags] = createSignal(getTags(docId));
-
-  useRelationsListener(
-    relations.addLocalRowIdsListener("docTagsJunction", docId, () => {
-      setTags(getTags(docId));
-    }),
-  );
+  const tagIds = useManyToManyIds("docTagsJunction", docId, "tagId");
 
   const blocks = getBlocks(docId);
   const doc = schema.node(
@@ -66,12 +55,12 @@ export function DocumentView() {
         {store.getRow("docs", docId).title}
       </h1>
       <ul class="flex gap-2 mb-12">
-        {tags().map(([tagId, tag]) => (
+        {tagIds().map((id) => (
           <li class="rounded-full px-2 py-1 bg-slate-100 text-sm">
-            #{tag}{" "}
+            #{useCell("tags", id, "name")()}{" "}
             <button
               onClick={() => {
-                const ids = indexes.getSliceRowIds("docsTagsJunction", tagId);
+                const ids = indexes.getSliceRowIds("docsTagsJunction", id);
                 for (const id of ids) {
                   store.delRow("docsTagsJunction", id);
                 }
