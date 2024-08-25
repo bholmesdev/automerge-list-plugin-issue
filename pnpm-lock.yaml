@@ -26,6 +26,9 @@ importers:
       '@markdoc/markdoc':
         specifier: ^0.4.0
         version: 0.4.0(@types/react@18.3.4)(react@18.3.1)
+      '@solidjs/router':
+        specifier: ^0.14.3
+        version: 0.14.3(solid-js@1.8.20)
       '@types/react':
         specifier: ^18.3.4
         version: 18.3.4
@@ -873,6 +876,11 @@ packages:
 
   '@shikijs/core@1.12.1':
     resolution: {integrity: sha512-biCz/mnkMktImI6hMfMX3H9kOeqsInxWEyCHbSlL8C/2TR1FqfmGxTLRNwYCKsyCyxWLbB8rEqXRVZuyxuLFmA==}
+
+  '@solidjs/router@0.14.3':
+    resolution: {integrity: sha512-9p4k4zL2baK/1XRQALbFcaQ4IikjkWmxqYQtFqLzjONUejhL1uqJHtzxB4tZjmNqtRANVRnTDbJfzjvaD9k+pQ==}
+    peerDependencies:
+      solid-js: ^1.8.6
 
   '@tybys/wasm-util@0.8.3':
     resolution: {integrity: sha512-Z96T/L6dUFFxgFJ+pQtkPpne9q7i6kIPYCFnQBHSgSPV9idTsKfIhCss0h5iM9irweZCatkrdeP8yi5uM1eX6Q==}
@@ -3394,6 +3402,10 @@ snapshots:
   '@shikijs/core@1.12.1':
     dependencies:
       '@types/hast': 3.0.4
+
+  '@solidjs/router@0.14.3(solid-js@1.8.20)':
+    dependencies:
+      solid-js: 1.8.20
 
   '@tybys/wasm-util@0.8.3':
     dependencies:
