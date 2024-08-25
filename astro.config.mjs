@@ -2,13 +2,14 @@ import { defineConfig } from "astro/config";
 import solidJs from "@astrojs/solid-js";
 import { createTools } from "tinybase/tools";
 import tailwind from "@astrojs/tailwind";
-import { store } from "./src/app/db";
+import { store } from "./src/app/store";
 import { mkdir, writeFile } from "node:fs/promises";
 import react from "@astrojs/react";
 let dotAstroDir;
 
 // https://astro.build/config
 export default defineConfig({
+  output: "server",
   integrations: [
     solidJs(),
     tailwind(),
