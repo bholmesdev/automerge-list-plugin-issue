@@ -3,11 +3,11 @@ import type { Cell, CellId, Row, Table, TableId } from "store:types";
 import {
   createIndexes,
   createRelationships,
-  createStore,
+  createMergeableStore,
   type Id,
 } from "tinybase/with-schemas";
 
-export const store = createStore()
+export const store = createMergeableStore()
   .setTablesSchema({
     docs: { title: { type: "string", required: true } },
     blocks: {

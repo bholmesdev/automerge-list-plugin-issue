@@ -109,6 +109,7 @@ export function DocumentView() {
                   syncStore(transaction, view, docId),
               },
             );
+            updateFromStore(view, docId);
           }}
         />
       </article>
@@ -200,8 +201,98 @@ export const schema = new Schema({
   marks: {},
 });
 
+function updateFromStore(view: EditorView, docId: string) {
+  const listener = store.addRowListener(
+    "blocks",
+    null,
+    (store, tableId, rowId, getCellChange) => {
+      const doc = view.state.tr.doc;
+      const blockDocId = store.getCell("blocks", rowId, "docId");
+      if (blockDocId !== docId || !getCellChange) return;
+
+      const [indexChanged, oldIndex, newIndex] = getCellChange(
+        "blocks",
+        rowId,
+        "index",
+      );
+
+      const [textChanged, oldText, newText] = getCellChange(
+        "blocks",
+        rowId,
+        "text",
+      );
+
+      if (indexChanged) {
+        console.log("listen:index", oldIndex, newIndex);
+        if (!oldIndex && newIndex) {
+          const node = schema.node(
+            "paragraph",
+            null,
+            newText ? schema.text(newText) : undefined,
+          );
+          const pos = doc.resolve(0).posAtIndex(newIndex);
+          console.log("inserted block", rowId);
+          return view.dispatch(
+            view.state.tr
+              .setMeta("store:plugin", { syncUpdate: false })
+              .insert(pos, node),
+          );
+        }
+        if (oldIndex && !newIndex) {
+          const pos = doc.resolve(0).posAtIndex(oldIndex);
+          console.log(
+            "maybe deleted",
+            rowId,
+            store.getCell("blocks", rowId, "text"),
+          );
+          return view.dispatch(
+            view.state.tr
+              .setMeta("store:plugin", { syncUpdate: false })
+              .delete(pos, pos + doc.child(oldIndex).nodeSize),
+          );
+        }
+        return;
+      }
+
+      const index = store.getCell("blocks", rowId, "index");
+      if (typeof index !== "number")
+        throw new Error("Unexpectedly missing index for block: " + rowId);
+      if (textChanged) {
+        console.log("listen:text", oldText, newText);
+        const node = doc.child(index);
+        const pos = doc.resolve(0).posAtIndex(index) + 1;
+
+        if (oldText && !newText) {
+          console.log("deleted text", rowId);
+          return view.dispatch(
+            view.state.tr
+              .setMeta("store:plugin", { syncUpdate: false })
+              .delete(pos, pos + node.content.size),
+          );
+        }
+
+        if (newText) {
+          const pos = doc.resolve(0).posAtIndex(index) + 1;
+          return view.dispatch(
+            view.state.tr
+              .setMeta("store:plugin", { syncUpdate: false })
+              .replaceWith(pos, pos + node.content.size, schema.text(newText)),
+          );
+        }
+      }
+    },
+  );
+
+  onCleanup(() => {
+    store.delListener(listener);
+  });
+}
+
 function syncStore(transaction: Transaction, view: EditorView, docId: string) {
-  if (transaction.steps.length === 0) {
+  if (
+    transaction.getMeta("store:plugin")?.syncUpdate === false ||
+    transaction.steps.length === 0
+  ) {
     const newState = view.state.apply(transaction);
     view.updateState(newState);
     return;
@@ -242,7 +333,4 @@ function syncStore(transaction: Transaction, view: EditorView, docId: string) {
   for (const unvisited of visitedBlocks) {
     store.delRow("blocks", unvisited);
   }
-
-  const newState = view.state.apply(transaction);
-  view.updateState(newState);
 }

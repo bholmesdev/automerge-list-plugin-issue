@@ -2,9 +2,10 @@ import { DocumentView } from "./Document";
 import { HubView } from "./Hub";
 import search from "../icons/list_search_fill.svg?raw";
 import { Icon } from "src/icons/Icon";
-import { Route, Router } from "@solidjs/router";
-import type { ParentProps } from "solid-js";
+import { Route, Router, useSearchParams } from "@solidjs/router";
+import { createResource, onCleanup, type ParentProps } from "solid-js";
 import { relations, store } from "./store";
+import { createWsSynchronizer } from "tinybase/synchronizers/synchronizer-ws-client";
 
 export function AppView() {
   return (
@@ -30,6 +31,15 @@ export function AppView() {
 
 function Layout(props: ParentProps) {
   const hubs = Object.entries(store.getTable("hubs"));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [ws] = createResource(() =>
+    createWsSynchronizer(store, new WebSocket("ws://localhost:8048")).then(
+      (server) => server.startSync(),
+    ),
+  );
+
+  onCleanup(() => ws()?.destroy());
+
   return (
     <main class="grid grid-cols-[1fr_6fr]">
       <nav class="p-4 pt-8 pr-8 min-w-64">
@@ -51,6 +61,23 @@ function Layout(props: ParentProps) {
             </li>
           ))}
         </ul>
+        <button
+          classList={{
+            "bg-red-200": Boolean(searchParams.offline),
+            "bg-green-200": !Boolean(searchParams.offline),
+          }}
+          onClick={() => {
+            if (searchParams.offline) {
+              setSearchParams({ offline: undefined });
+              ws()?.startSync();
+            } else {
+              setSearchParams({ offline: true });
+              ws()?.stopSync();
+            }
+          }}
+        >
+          {searchParams.offline ? "Offline" : "Online"}
+        </button>
       </nav>
       {props.children}
     </main>
