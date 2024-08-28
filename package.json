@@ -35,11 +35,14 @@
     "solid-js": "^1.8.20",
     "tailwindcss": "^3.4.9",
     "tinybase": "^5.1.5",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
     "@types/prosemirror-dev-tools": "^3.0.6",
-    "prosemirror-dev-tools": "^4.1.0"
+    "@types/ws": "^8.5.12",
+    "prosemirror-dev-tools": "^4.1.0",
+    "tsm": "^2.3.0"
   }
 }
