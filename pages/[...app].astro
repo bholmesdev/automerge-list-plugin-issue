@@ -12,8 +12,9 @@ export const prerender = false;
         <title>Automerge</title>
     </head>
     <body>
-        <h1>Welcome to fika!</h1>
-        <IndexView client:only="solid" />
+        <IndexView client:only="solid">
+            <div slot="fallback" class="w-screen h-dvh bg-gray-50 animate-pulse"></div>
+        </IndexView>
     </body>
 </html>
 

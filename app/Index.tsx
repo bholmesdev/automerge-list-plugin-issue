@@ -1,9 +1,14 @@
-import { cache, Route, Router, useSearchParams } from "@solidjs/router";
-import { createResource, onCleanup, type ParentProps } from "solid-js";
-import { DocumentView, NewDocumentRedirectView, repo } from "./views/Document";
+import { Route, Router } from "@solidjs/router";
+import type { ParentProps } from "solid-js";
+import {
+  DocumentView,
+  loadDocHandle,
+  NewDocumentRedirectView,
+  repo,
+} from "./views/Document";
 import {
   isValidAutomergeUrl,
-  isValidDocumentId,
+  type AutomergeUrl,
 } from "@automerge/automerge-repo";
 
 export function IndexView() {
@@ -13,6 +18,9 @@ export function IndexView() {
       <Route
         path="/docs/:url"
         component={DocumentView}
+        preload={async ({ params }) => {
+          void loadDocHandle(params.url as AutomergeUrl);
+        }}
         matchFilters={{
           url: (value: string) => isValidAutomergeUrl(value),
         }}
@@ -24,8 +32,8 @@ export function IndexView() {
 
 function Layout(props: ParentProps) {
   return (
-    <main class="grid grid-cols-[1fr_6fr]">
-      <nav>Nav</nav>
+    <main class="grid grid-cols-[1fr_6fr] pt-4">
+      <nav></nav>
       {props.children}
     </main>
   );

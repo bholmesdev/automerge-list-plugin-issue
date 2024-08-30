@@ -17,7 +17,8 @@ import { createSignal, onCleanup, Show } from "solid-js";
 
 const broadcast = new BroadcastChannelNetworkAdapter();
 const indexedDB = new IndexedDBStorageAdapter();
-const getDocHandle = cache(async (url: string) => {
+
+export const loadDocHandle = cache(async (url: string) => {
   const handle = repo.find(url as AutomergeUrl);
   await handle.whenReady();
   return handle;
@@ -39,9 +40,9 @@ export function NewDocumentRedirectView() {
 
 export function DocumentView() {
   const { url } = useParams();
-  const doc = createAsync(() => getDocHandle(url));
+  const handle = createAsync(() => loadDocHandle(url));
 
-  return <Show when={doc()}>{(value) => <Editor handle={value()} />}</Show>;
+  return <Show when={handle()}>{(value) => <Editor handle={value()} />}</Show>;
 }
 
 function Editor(props: { handle: DocHandle<unknown> }) {
