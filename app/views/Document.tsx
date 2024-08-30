@@ -13,7 +13,7 @@ import {
   useParams,
   useSearchParams,
 } from "@solidjs/router";
-import { onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup, Show } from "solid-js";
 
 const broadcast = new BroadcastChannelNetworkAdapter();
 const indexedDB = new IndexedDBStorageAdapter();
@@ -25,7 +25,6 @@ const getDocHandle = cache(async (url: string) => {
 
 export const repo = new Repo({
   storage: indexedDB,
-  network: [broadcast],
 });
 
 export function NewDocumentRedirectView() {
@@ -47,7 +46,7 @@ export function DocumentView() {
 
 function Editor(props: { handle: DocHandle<unknown> }) {
   const autoMirror = new AutoMirror(["text"]);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [isOnline, setIsOnline] = createSignal(false);
   const editorState = EditorState.create({
     doc: autoMirror.initialize(props.handle),
     schema: autoMirror.schema,
@@ -59,12 +58,16 @@ function Editor(props: { handle: DocHandle<unknown> }) {
       <h1>Document</h1>
       <button
         onClick={() => {
-          setSearchParams({
-            offline: searchParams.offline ? undefined : true,
-          });
+          if (!isOnline()) {
+            repo.networkSubsystem.addNetworkAdapter(broadcast);
+            setIsOnline(true);
+            return;
+          }
+          window.location.reload();
         }}
+        class="text-gray-500 font-bold"
       >
-        {searchParams.offline ? "Go Online" : "Go Offline"}
+        {isOnline() ? "Go offline" : "Go online"}
       </button>
       <div
         class="focus:outline-none mt-4"
