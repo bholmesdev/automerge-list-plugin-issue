@@ -1,27 +1,23 @@
 ---
-import { AppView } from "../app/App";
+import { IndexView } from "../app/Index";
+
+export const prerender = false;
 ---
 
+<!doctype html>
 <html lang="en">
     <head>
-        <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="viewport" content="width=device-width" />
-        <meta name="generator" content={Astro.generator} />
-        <title>Astro</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Automerge</title>
     </head>
     <body>
-        <AppView client:only="solid" />
+        <h1>Welcome to fika!</h1>
+        <IndexView client:only="solid" />
     </body>
 </html>
 
 <style is:global>
-    html::view-transition-group(*) {
-        animation-duration: 0.15s;
-        animation-timing-function: cubic-bezier(0, 0, 0, 1);
-        animation-fill-mode: both;
-    }
-
     article h3 {
         font-size: theme(fontSize.xl);
         margin-block-start: 3rem;
