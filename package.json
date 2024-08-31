@@ -25,6 +25,7 @@
     "@floating-ui/dom": "^1.6.10",
     "@solidjs/router": "^0.14.3",
     "astro": "^4.15.1",
+    "oslo": "^1.2.1",
     "prosemirror-commands": "^1.6.0",
     "prosemirror-keymap": "^1.2.2",
     "prosemirror-model": "^1.22.3",
