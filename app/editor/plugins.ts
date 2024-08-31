@@ -37,7 +37,7 @@ export function listShortcutPlugin() {
             schema.node(
               "paragraph",
               null,
-              $from.parent.content.cut(0, $from.parent.content.size)
+              $from.parent.content.cut(1, $from.parent.content.size)
             )
           );
           const ul = schema.node("bullet_list", null, [li]);
