@@ -4,7 +4,6 @@ import {
   DocumentView,
   loadDocHandle,
   NewDocumentRedirectView,
-  repo,
 } from "./views/Document";
 import {
   isValidAutomergeUrl,

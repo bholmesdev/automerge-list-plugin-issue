@@ -1,19 +1,9 @@
-import { baseKeymap } from "prosemirror-commands";
-import { keymap } from "prosemirror-keymap";
-import { EditorState, Transaction } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
-import { AutoMirror } from "@automerge/prosemirror";
 import { DocHandle, Repo, type AutomergeUrl } from "@automerge/automerge-repo";
 import { IndexedDBStorageAdapter } from "@automerge/automerge-repo-storage-indexeddb";
 import { BroadcastChannelNetworkAdapter } from "@automerge/automerge-repo-network-broadcastchannel";
-import {
-  cache,
-  createAsync,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "@solidjs/router";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { cache, createAsync, useNavigate, useParams } from "@solidjs/router";
+import { createSignal, Show } from "solid-js";
+import { Editor } from "../editor";
 
 const broadcast = new BroadcastChannelNetworkAdapter();
 const indexedDB = new IndexedDBStorageAdapter();
@@ -42,18 +32,11 @@ export function DocumentView() {
   const { url } = useParams();
   const handle = createAsync(() => loadDocHandle(url));
 
-  return <Show when={handle()}>{(value) => <Editor handle={value()} />}</Show>;
+  return <Show when={handle()}>{(value) => <View handle={value()} />}</Show>;
 }
 
-function Editor(props: { handle: DocHandle<unknown> }) {
-  const autoMirror = new AutoMirror(["text"]);
+function View(props: { handle: DocHandle<unknown> }) {
   const [isOnline, setIsOnline] = createSignal(false);
-  const editorState = EditorState.create({
-    doc: autoMirror.initialize(props.handle),
-    schema: autoMirror.schema,
-    plugins: [keymap({}), keymap(baseKeymap)],
-  });
-
   return (
     <article>
       <h1>Document</h1>
@@ -70,40 +53,7 @@ function Editor(props: { handle: DocHandle<unknown> }) {
       >
         {isOnline() ? "Go offline" : "Go online"}
       </button>
-      <div
-        class="focus:outline-none mt-4"
-        ref={(el) => {
-          const view = new EditorView(
-            (editor) => {
-              editor.className = el.className;
-              el.replaceWith(editor);
-
-              props.handle.on("change", ({ doc, patches, patchInfo }) => {
-                const newState = autoMirror.reconcilePatch(
-                  patchInfo.before,
-                  doc,
-                  patches,
-                  view.state
-                );
-                view.updateState(newState);
-              });
-
-              onCleanup(() => props.handle.removeListener("change"));
-            },
-            {
-              state: editorState,
-              dispatchTransaction: (tx: Transaction) => {
-                const newState = autoMirror.intercept(
-                  props.handle,
-                  tx,
-                  view.state
-                );
-                view.updateState(newState);
-              },
-            }
-          );
-        }}
-      />
+      <Editor handle={props.handle} />
     </article>
   );
 }
